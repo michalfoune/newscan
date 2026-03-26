@@ -12,6 +12,10 @@ export interface Translations {
   generating: string;
   stories: (n: number) => string;
   generatedAt: (t: string) => string;
+  toneLabels: { positive: string; neutral: string; concerning: string };
+  timeJustNow: string;
+  timeHoursAgo: (h: number) => string;
+  timeYesterday: (time: string) => string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -29,6 +33,10 @@ export const translations: Record<Language, Translations> = {
     generating: 'Generating…',
     stories: (n) => `${n} ${n === 1 ? 'story' : 'stories'}`,
     generatedAt: (t) => `Generated at ${t}`,
+    toneLabels: { positive: 'Positive', neutral: 'Neutral', concerning: 'Concerning' },
+    timeJustNow: 'Just now',
+    timeHoursAgo: (h) => `${h}h ago`,
+    timeYesterday: (time) => `Yesterday, ${time}`,
   },
   cs: {
     tagline: 'Zůstaňte informováni bez emočního přetížení.',
@@ -44,5 +52,9 @@ export const translations: Record<Language, Translations> = {
     generating: 'Generuji…',
     stories: (n) => `${n} ${n === 1 ? 'příběh' : n < 5 ? 'příběhy' : 'příběhů'}`,
     generatedAt: (t) => `Vygenerováno v ${t}`,
+    toneLabels: { positive: 'Pozitivní', neutral: 'Neutrální', concerning: 'Znepokojivé' },
+    timeJustNow: 'Právě teď',
+    timeHoursAgo: (h) => `před ${h}h`,
+    timeYesterday: (time) => `Včera v ${time}`,
   },
 };
