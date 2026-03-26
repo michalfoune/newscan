@@ -15,51 +15,59 @@ This allows a user to shape the feed at two levels:
 
 ## Example user request
 
-A user might say:
-
 > Give me one short update about the Russia-Ukraine war, and then some good news from photography or wildlife conservation.
 
 ## Feed design principles
-
-The app is built around a few core principles:
 
 - Let users include and exclude topics explicitly
 - Keep news concise, factual, and high-level
 - Avoid sensationalism, clickbait, and emotionally manipulative framing
 - Do not over-focus on disasters, war, tragedy, or outrage
-- Avoid deep, graphic, or excessively detailed coverage of negative events
 - Maintain a healthier emotional balance in the overall feed
 
-## Example system-level preferences
+---
 
-Examples of general rules the app may follow:
+## Running locally
 
-- Never include more than 1-2 negative or concerning stories in one feed
-- Keep the balance roughly **60% neutral or positive** and **no more than 40% negative or concerning**
-- Do not offer in-depth coverage of wars or disasters by default
-- Keep headlines calm, factual, and non-depressive
-- Prioritize signal over noise
+### Prerequisites
 
-## Product goal
+- Python 3.11+
+- Node.js 18+
+- An Anthropic API key
 
-Newscan is not trying to maximize engagement through fear, outrage, or compulsive scrolling.
+### Backend
 
-Its goal is to help users:
-- stay aware of important events
-- keep perspective
-- reduce unnecessary emotional drain
-- consume news more intentionally
+```bash
+cd backend
+cp .env.example .env
+# Add your ANTHROPIC_API_KEY to .env
 
-## Possible stack
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-- **Frontend:** TypeScript
-- **Backend:** Python
-- **AI layer:** LLM-based summarization, filtering, ranking, and tone control
+uvicorn main:app --reload
+# Runs at http://localhost:8000
+# API docs at http://localhost:8000/docs
+```
 
-## Development
+### Frontend
 
-This project is being built locally with VS Code and GitHub, with implementation support from Claude Code.
+```bash
+cd frontend
+npm install
+npm run dev
+# Runs at http://localhost:5173
+```
+
+---
+
+## Stack
+
+- **Frontend:** React + TypeScript + Vite
+- **Backend:** Python + FastAPI
+- **AI layer:** Anthropic Claude API (briefing generation, tone control, summarization)
 
 ## Status
 
-Early concept and development stage.
+Early MVP. News is generated from the model's knowledge — real-time news source integration is the next step.
