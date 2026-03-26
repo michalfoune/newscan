@@ -63,7 +63,7 @@ export function BriefingForm({ onSubmit, loading }: Props) {
         className="submit-btn"
         disabled={loading || !request.trim()}
       >
-        {loading ? 'Generating…' : 'Generate briefing'}
+        {loading ? 'Generating…' : 'Run'}
       </button>
     </form>
   );

@@ -28,10 +28,20 @@ body {
 }
 
 .app-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #1a1a1a;
+}
+
+.app-title-icon {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
 }
 
 .app-tagline {

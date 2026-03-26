@@ -35,8 +35,11 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1 className="app-title">Newscan</h1>
-        <p className="app-tagline">Personalized news briefings, without the overload</p>
+        <h1 className="app-title">
+          <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
+          Rizma Brief
+        </h1>
+        <p className="app-tagline">Stay informed without emotional overload.</p>
       </header>
       <main className="app-main">
         <BriefingForm onSubmit={handleSubmit} loading={loading} />
