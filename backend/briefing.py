@@ -1,6 +1,7 @@
 import json
+import random
 import anthropic
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from models import BriefingRequest, BriefingResponse, BriefingItem
 
 SYSTEM_PROMPT = """You are Newscan, an AI that generates personalized, emotionally sustainable news briefings.
@@ -32,7 +33,11 @@ Schema:
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:
-    system = SYSTEM_PROMPT
+    lang_instruction = {
+        "en": "Respond entirely in English (US).",
+        "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
+    }
+    system = SYSTEM_PROMPT + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
     if req.system_preferences and req.system_preferences.strip():
         system += f"\n\nUser's persistent preferences (apply to every briefing):\n{req.system_preferences.strip()}"
 
@@ -52,7 +57,14 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
         raw = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
 
     data = json.loads(raw)
-    items = [BriefingItem(**item) for item in data["items"]]
+    now = datetime.now(timezone.utc)
+    items = [
+        BriefingItem(
+            **item,
+            published_at=(now - timedelta(seconds=random.randint(0, 48 * 3600))).isoformat(),
+        )
+        for item in data["items"]
+    ]
 
     return BriefingResponse(
         items=items,

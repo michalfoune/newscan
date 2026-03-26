@@ -15,11 +15,13 @@ class BriefingItem(BaseModel):
     category: str
     why_it_matters: Optional[str] = None
     tone: Tone
+    published_at: str
 
 
 class BriefingRequest(BaseModel):
     request: str
     system_preferences: Optional[str] = None
+    language: str = "en"
 
 
 class BriefingResponse(BaseModel):

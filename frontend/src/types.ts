@@ -6,6 +6,7 @@ export interface BriefingItem {
   category: string;
   why_it_matters?: string;
   tone: Tone;
+  published_at: string;
 }
 
 export interface BriefingResponse {
@@ -16,4 +17,5 @@ export interface BriefingResponse {
 export interface BriefingRequest {
   request: string;
   system_preferences?: string;
+  language: string;
 }

@@ -21,10 +21,39 @@ body {
 }
 
 .app-header {
+  position: relative;
   padding: 2.5rem 1.5rem 1.5rem;
   text-align: center;
   border-bottom: 1px solid #e5e3de;
   background: #fff;
+}
+
+.lang-switcher {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.2rem;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  border-radius: 4px;
+}
+
+.lang-btn:hover {
+  opacity: 0.6;
+}
+
+.lang-btn.active {
+  opacity: 1;
 }
 
 .app-title {
@@ -217,6 +246,12 @@ textarea::placeholder {
 .tone-positive { color: #3d7a52; }
 .tone-neutral  { color: #6a7888; }
 .tone-concerning { color: #8b6030; }
+
+.published-at {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #aaa;
+}
 
 .feed-item-headline {
   font-size: 1.05rem;

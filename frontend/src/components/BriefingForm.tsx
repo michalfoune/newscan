@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { BriefingRequest } from '../types';
+import { Language, Translations } from '../translations';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
   loading: boolean;
+  t: Translations;
+  language: Language;
 }
 
-export function BriefingForm({ onSubmit, loading }: Props) {
+export function BriefingForm({ onSubmit, loading, t, language }: Props) {
   const [request, setRequest] = useState('');
   const [preferences, setPreferences] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
@@ -17,19 +20,20 @@ export function BriefingForm({ onSubmit, loading }: Props) {
     onSubmit({
       request: request.trim(),
       system_preferences: preferences.trim() || undefined,
+      language,
     });
   };
 
   return (
     <form onSubmit={handleSubmit} className="briefing-form">
       <label className="field-label" htmlFor="request">
-        What would you like to know?
+        {t.requestLabel}
       </label>
       <textarea
         id="request"
         value={request}
         onChange={(e) => setRequest(e.target.value)}
-        placeholder="e.g. Give me one update on the Russia-Ukraine situation, then some good news from science or wildlife."
+        placeholder={t.requestPlaceholder}
         rows={3}
         disabled={loading}
       />
@@ -39,19 +43,19 @@ export function BriefingForm({ onSubmit, loading }: Props) {
         className="toggle-prefs"
         onClick={() => setShowPreferences(!showPreferences)}
       >
-        {showPreferences ? '− Hide preferences' : '+ Persistent preferences'}
+        {showPreferences ? t.prefsToggleHide : t.prefsToggleShow}
       </button>
 
       {showPreferences && (
         <>
           <label className="field-label" htmlFor="preferences">
-            General rules for every briefing
+            {t.prefsLabel}
           </label>
           <textarea
             id="preferences"
             value={preferences}
             onChange={(e) => setPreferences(e.target.value)}
-            placeholder="e.g. Never include more than 1 concerning story. Keep tone calm and factual. No detailed war coverage."
+            placeholder={t.prefsPlaceholder}
             rows={3}
             disabled={loading}
           />
@@ -63,7 +67,7 @@ export function BriefingForm({ onSubmit, loading }: Props) {
         className="submit-btn"
         disabled={loading || !request.trim()}
       >
-        {loading ? 'Generating…' : 'Run'}
+        {loading ? t.generating : t.submit}
       </button>
     </form>
   );
