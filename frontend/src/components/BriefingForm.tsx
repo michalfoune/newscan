@@ -67,7 +67,7 @@ export function BriefingForm({ onSubmit, loading, t, language }: Props) {
         className="submit-btn"
         disabled={loading || !request.trim()}
       >
-        {loading ? t.generating : t.submit}
+        {loading ? <span className="spinner" /> : t.submit}
       </button>
     </form>
   );
