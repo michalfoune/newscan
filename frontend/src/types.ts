@@ -7,6 +7,9 @@ export interface BriefingItem {
   why_it_matters?: string;
   tone: Tone;
   published_at: string;
+  url?: string;
+  source?: string;
+  excerpt?: string;
 }
 
 export interface BriefingResponse {

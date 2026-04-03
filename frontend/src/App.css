@@ -206,6 +206,13 @@ textarea::placeholder {
   border-radius: 10px;
   padding: 1.25rem 1.5rem;
   border-left-width: 4px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.feed-item:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
 }
 
 .feed-item--positive {
@@ -273,4 +280,130 @@ textarea::placeholder {
   color: #666;
   padding-top: 0.75rem;
   border-top: 1px solid #f0eeea;
+}
+
+.card-read-original {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #7c9a7a;
+  text-decoration: none;
+}
+
+.card-read-original:hover {
+  color: #3d6b3a;
+  text-decoration: underline;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1.5rem;
+  backdrop-filter: blur(2px);
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 620px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: #aaa;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  color: #555;
+  background: #f0eeea;
+}
+
+.modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+}
+
+.modal-headline {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #1a1a1a;
+  margin-bottom: 0.875rem;
+}
+
+.modal-summary {
+  font-size: 0.95rem;
+  color: #333;
+  line-height: 1.7;
+}
+
+.modal-excerpt {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: #f7f6f3;
+  border-radius: 8px;
+}
+
+.modal-excerpt-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+}
+
+.modal-excerpt-text {
+  font-size: 0.875rem;
+  color: #555;
+  line-height: 1.7;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0eeea;
+}
+
+.modal-source {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.modal-read-original {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #3d6b3a;
+  text-decoration: none;
+}
+
+.modal-read-original:hover {
+  text-decoration: underline;
 }

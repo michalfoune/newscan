@@ -32,7 +32,7 @@ def fetch_articles(topics: list[str], max_per_topic: int = 5) -> list[dict]:
             articles.append({
                 "topic": topic,
                 "title": article.get("title", "").strip(),
-                "body": body[:800].strip(),
+                "body": body[:1500].strip(),
                 "source": article.get("source", {}).get("title", "Unknown"),
                 "datetime": article.get("dateTime", ""),
                 "url": url,

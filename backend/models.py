@@ -16,6 +16,9 @@ class BriefingItem(BaseModel):
     why_it_matters: Optional[str] = None
     tone: Tone
     published_at: str
+    url: Optional[str] = None
+    source: Optional[str] = None
+    excerpt: Optional[str] = None
 
 
 class BriefingRequest(BaseModel):

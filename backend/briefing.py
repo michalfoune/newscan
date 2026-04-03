@@ -119,16 +119,30 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     data = json.loads(_strip_fences(message.content[0].text.strip()))
 
     now = datetime.now(timezone.utc)
-    # Real publication datetimes from NewsAPI, most recent first, deduplicated
-    real_datetimes = list(dict.fromkeys(
-        a["datetime"] for a in sorted(articles, key=lambda a: a["datetime"], reverse=True)
-        if a["datetime"]
-    ))
+    # Bundle (datetime, url, source) per article, most recent first, deduplicated by url
+    seen: set[str] = set()
+    article_meta: list[tuple[str, str, str, str]] = []
+    for a in sorted(articles, key=lambda a: a["datetime"], reverse=True):
+        url = a.get("url", "")
+        if url and url not in seen:
+            seen.add(url)
+            article_meta.append((
+                a["datetime"] or now.isoformat(),
+                url,
+                a.get("source", ""),
+                a.get("body", ""),
+            ))
 
     items = []
     for i, item in enumerate(data["items"]):
-        published_at = real_datetimes[i % len(real_datetimes)] if real_datetimes else now.isoformat()
-        items.append(BriefingItem(**item, published_at=published_at))
+        published_at, url, source, excerpt = article_meta[i % len(article_meta)] if article_meta else (now.isoformat(), "", "", "")
+        items.append(BriefingItem(
+            **item,
+            published_at=published_at,
+            url=url or None,
+            source=source or None,
+            excerpt=excerpt or None,
+        ))
 
     return BriefingResponse(
         items=items,
