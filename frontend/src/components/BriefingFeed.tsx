@@ -53,13 +53,13 @@ function ArticleModal({
 
         {item.why_it_matters && (
           <p className="why-it-matters">
-            <strong>Why it matters:</strong> {item.why_it_matters}
+            <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
           </p>
         )}
 
         {item.excerpt && (
           <div className="modal-excerpt">
-            <p className="modal-excerpt-label">From the source</p>
+            <p className="modal-excerpt-label">{t.fromTheSource}</p>
             <p className="modal-excerpt-text">{item.excerpt}</p>
           </div>
         )}
@@ -75,7 +75,7 @@ function ArticleModal({
               rel="noopener noreferrer"
               className="modal-read-original"
             >
-              Read original →
+              {t.readOriginal}
             </a>
           )}
         </div>
@@ -116,7 +116,7 @@ function FeedItem({
       <p className="feed-item-summary">{item.summary}</p>
       {item.why_it_matters && (
         <p className="why-it-matters">
-          <strong>Why it matters:</strong> {item.why_it_matters}
+          <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
         </p>
       )}
       {item.url && (

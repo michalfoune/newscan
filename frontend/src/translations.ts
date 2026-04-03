@@ -16,6 +16,9 @@ export interface Translations {
   timeJustNow: string;
   timeHoursAgo: (h: number) => string;
   timeYesterday: (time: string) => string;
+  whyItMatters: string;
+  fromTheSource: string;
+  readOriginal: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -37,6 +40,9 @@ export const translations: Record<Language, Translations> = {
     timeJustNow: 'Just now',
     timeHoursAgo: (h) => `${h}h ago`,
     timeYesterday: (time) => `Yesterday, ${time}`,
+    whyItMatters: 'Why it matters',
+    fromTheSource: 'From the source',
+    readOriginal: 'Read original →',
   },
   cs: {
     tagline: 'Zůstaňte informováni bez emočního přetížení.',
@@ -56,5 +62,8 @@ export const translations: Record<Language, Translations> = {
     timeJustNow: 'Právě teď',
     timeHoursAgo: (h) => `před ${h}h`,
     timeYesterday: (time) => `Včera v ${time}`,
+    whyItMatters: 'Proč je to důležité',
+    fromTheSource: 'Ze zdroje',
+    readOriginal: 'Přečíst originál →',
   },
 };

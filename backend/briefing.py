@@ -63,6 +63,32 @@ def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
     return json.loads(_strip_fences(msg.content[0].text.strip()))
 
 
+def _translate_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> list[BriefingItem]:
+    """Translate all item excerpts to Czech in one batched Haiku call."""
+    indices = [i for i, item in enumerate(items) if item.excerpt]
+    if not indices:
+        return items
+
+    payload = [{"i": i, "text": items[i].excerpt} for i in indices]
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=4096,
+        system=(
+            "Translate the 'text' field of each object in the JSON array to Czech. "
+            "Return a JSON array with the same objects, with 'text' replaced by the Czech translation. "
+            "Preserve the 'i' field unchanged. Return ONLY valid JSON, no markdown."
+        ),
+        messages=[{"role": "user", "content": json.dumps(payload)}],
+    )
+    translated = json.loads(_strip_fences(msg.content[0].text.strip()))
+    by_index = {obj["i"]: obj["text"] for obj in translated}
+
+    result = list(items)
+    for i, text in by_index.items():
+        result[i] = result[i].model_copy(update={"excerpt": text})
+    return result
+
+
 def _build_article_context(articles: list[dict]) -> str:
     if not articles:
         return "No articles were retrieved."
@@ -143,6 +169,9 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
             source=source or None,
             excerpt=excerpt or None,
         ))
+
+    if req.language == "cs":
+        items = _translate_excerpts(items, client)
 
     return BriefingResponse(
         items=items,
