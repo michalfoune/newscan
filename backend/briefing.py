@@ -1,20 +1,31 @@
 import json
-import random
 import anthropic
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from models import BriefingRequest, BriefingResponse, BriefingItem
+from news import fetch_articles
 
-SYSTEM_PROMPT = """You are Newscan, an AI that generates personalized, emotionally sustainable news briefings.
+# ---------------------------------------------------------------------------
+# Prompts
+# ---------------------------------------------------------------------------
+
+TOPIC_EXTRACTION_PROMPT = (
+    "Extract the main news topics from the user's request as a JSON array of short "
+    "search queries (2–5 words each). Return ONLY valid JSON with no other text. "
+    'Example: ["Russia Ukraine war", "wildlife conservation", "space exploration"]. '
+    "Maximum 4 topics."
+)
+
+BRIEFING_SYSTEM_PROMPT = """You are Newscan, an AI that generates personalized, emotionally sustainable news briefings.
 
 Your role is to help users stay informed without emotional overload, clickbait, or doomscrolling.
 
 Core principles:
-- Do NOT hide important reality — present it calmly and factually
+- Base your briefing ONLY on the provided article excerpts — do not invent facts
 - Use measured, clear language. No sensational framing, no clickbait headlines
 - Avoid graphic detail and emotionally manipulative framing
 - Keep summaries concise: 2–3 sentences, high-signal, no filler
 - Respect any balance rules the user sets (e.g. max concerning stories)
-- Use your knowledge of recent world events to construct the briefing
+- If no articles are provided for a requested topic, omit it gracefully
 
 Output: Return ONLY a valid JSON object. No markdown, no code fences, no text outside the JSON.
 
@@ -31,42 +42,95 @@ Schema:
   ]
 }"""
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _strip_fences(raw: str) -> str:
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+    return raw.strip()
+
+
+def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=256,
+        system=TOPIC_EXTRACTION_PROMPT,
+        messages=[{"role": "user", "content": request}],
+    )
+    return json.loads(_strip_fences(msg.content[0].text.strip()))
+
+
+def _build_article_context(articles: list[dict]) -> str:
+    if not articles:
+        return "No articles were retrieved."
+    lines = []
+    current_topic = None
+    for a in articles:
+        if a["topic"] != current_topic:
+            current_topic = a["topic"]
+            lines.append(f"\n[Topic: {current_topic}]")
+        lines.append(f"- {a['title']} ({a['source']}, {a['datetime'][:10]})")
+        if a["body"]:
+            lines.append(f"  {a['body']}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:
+    client = anthropic.Anthropic()
+
+    # Pass 1: extract topics
+    topics = _extract_topics(req.request, client)
+
+    # Pass 2: fetch real articles
+    articles = fetch_articles(topics)
+
+    # Pass 3: generate briefing grounded in real articles
     lang_instruction = {
         "en": "Respond entirely in English (US).",
         "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
     }
-    system = SYSTEM_PROMPT + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
+    system = (
+        BRIEFING_SYSTEM_PROMPT
+        + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
+    )
     if req.system_preferences and req.system_preferences.strip():
-        system += f"\n\nUser's persistent preferences (apply to every briefing):\n{req.system_preferences.strip()}"
+        system += f"\n\nUser's persistent preferences:\n{req.system_preferences.strip()}"
 
-    client = anthropic.Anthropic()
+    article_context = _build_article_context(articles)
+    user_message = (
+        f"User request: {req.request}\n\n"
+        f"Article excerpts to draw from:\n{article_context}"
+    )
+
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2048,
         system=system,
-        messages=[{"role": "user", "content": req.request}],
+        messages=[{"role": "user", "content": user_message}],
     )
 
-    raw = message.content[0].text.strip()
+    data = json.loads(_strip_fences(message.content[0].text.strip()))
 
-    # Strip accidental markdown code fences
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        raw = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
-
-    data = json.loads(raw)
     now = datetime.now(timezone.utc)
-    items = [
-        BriefingItem(
-            **item,
-            published_at=(now - timedelta(seconds=random.randint(0, 48 * 3600))).isoformat(),
-        )
-        for item in data["items"]
-    ]
+    # Real publication datetimes from NewsAPI, most recent first, deduplicated
+    real_datetimes = list(dict.fromkeys(
+        a["datetime"] for a in sorted(articles, key=lambda a: a["datetime"], reverse=True)
+        if a["datetime"]
+    ))
+
+    items = []
+    for i, item in enumerate(data["items"]):
+        published_at = real_datetimes[i % len(real_datetimes)] if real_datetimes else now.isoformat()
+        items.append(BriefingItem(**item, published_at=published_at))
 
     return BriefingResponse(
         items=items,
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=now.isoformat(),
     )
