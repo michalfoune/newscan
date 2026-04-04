@@ -66,7 +66,7 @@ export default function App() {
           <p className="no-results">{t.noResults}</p>
         )}
         {response && response.items.length > 0 && <BriefingFeed response={response} t={t} />}
-        {response && response.missing_topics.length > 0 && (
+        {response && response.items.length > 0 && response.missing_topics.length > 0 && (
           <p className="no-results">{t.noResultsForTopics(response.missing_topics)}</p>
         )}
       </main>
