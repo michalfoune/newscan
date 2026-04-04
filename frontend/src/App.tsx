@@ -7,7 +7,8 @@ import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const FLAGS: Record<Language, string> = { en: '🇺🇸', cs: '🇨🇿' };
+const LANG_LABELS: Record<Language, string> = { en: '🇺🇸 English', cs: '🇨🇿 Čeština' };
+const OTHER_LANG: Record<Language, Language> = { en: 'cs', cs: 'en' };
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('en');
@@ -42,16 +43,12 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="lang-switcher">
-          {(['en', 'cs'] as Language[]).map((lang) => (
-            <button
-              key={lang}
-              className={`lang-btn${language === lang ? ' active' : ''}`}
-              onClick={() => setLanguage(lang)}
-              title={lang === 'en' ? 'English (US)' : 'Čeština'}
-            >
-              {FLAGS[lang]}
-            </button>
-          ))}
+          <button
+            className="lang-btn"
+            onClick={() => setLanguage(OTHER_LANG[language])}
+          >
+            {LANG_LABELS[OTHER_LANG[language]]}
+          </button>
         </div>
         <h1 className="app-title">
           <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
