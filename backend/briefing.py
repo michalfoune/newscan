@@ -66,6 +66,36 @@ def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
     return json.loads(_strip_fences(msg.content[0].text.strip()))
 
 
+def _filter_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> list[BriefingItem]:
+    """For each item, keep only the excerpt sentences relevant to its headline.
+    Handles aggregator pages that concatenate unrelated stories into one body."""
+    indices = [i for i, item in enumerate(items) if item.excerpt]
+    if not indices:
+        return items
+
+    payload = [{"i": i, "headline": items[i].headline, "text": items[i].excerpt} for i in indices]
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=4096,
+        system=(
+            "You receive a JSON array of objects with 'i', 'headline', and 'text' fields. "
+            "The 'text' may contain content from multiple unrelated news stories concatenated together. "
+            "For each object, extract and return only the sentences from 'text' that are directly relevant to 'headline'. "
+            "If no relevant sentences exist, return an empty string for 'text'. "
+            "Do not add, invent, or paraphrase — only use text that is present in the input. "
+            "Return a JSON array with the same 'i' field and the filtered 'text'. No markdown."
+        ),
+        messages=[{"role": "user", "content": json.dumps(payload)}],
+    )
+    filtered = json.loads(_strip_fences(msg.content[0].text.strip()))
+    by_index = {obj["i"]: obj["text"] for obj in filtered}
+
+    result = list(items)
+    for i, text in by_index.items():
+        result[i] = result[i].model_copy(update={"excerpt": text or None})
+    return result
+
+
 def _translate_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> list[BriefingItem]:
     """Translate all item excerpts to Czech in one batched Haiku call."""
     indices = [i for i, item in enumerate(items) if item.excerpt]
@@ -188,6 +218,8 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
             source=source or None,
             excerpt=excerpt or None,
         ))
+
+    items = _filter_excerpts(items, client)
 
     if req.language == "cs":
         items = _translate_excerpts(items, client)
