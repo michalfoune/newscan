@@ -87,13 +87,16 @@ def _filter_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> 
         ),
         messages=[{"role": "user", "content": json.dumps(payload)}],
     )
-    filtered = json.loads(_strip_fences(msg.content[0].text.strip()))
-    by_index = {obj["i"]: obj["text"] for obj in filtered}
-
-    result = list(items)
-    for i, text in by_index.items():
-        result[i] = result[i].model_copy(update={"excerpt": text or None})
-    return result
+    try:
+        filtered = json.loads(_strip_fences(msg.content[0].text.strip()))
+        by_index = {obj["i"]: obj["text"] for obj in filtered}
+        result = list(items)
+        for i, text in by_index.items():
+            result[i] = result[i].model_copy(update={"excerpt": text or None})
+        return result
+    except (json.JSONDecodeError, KeyError):
+        # Malformed response — return items with excerpts cleared to avoid showing garbage
+        return [item.model_copy(update={"excerpt": None}) for item in items]
 
 
 def _translate_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> list[BriefingItem]:
@@ -113,13 +116,16 @@ def _translate_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) 
         ),
         messages=[{"role": "user", "content": json.dumps(payload)}],
     )
-    translated = json.loads(_strip_fences(msg.content[0].text.strip()))
-    by_index = {obj["i"]: obj["text"] for obj in translated}
-
-    result = list(items)
-    for i, text in by_index.items():
-        result[i] = result[i].model_copy(update={"excerpt": text})
-    return result
+    try:
+        translated = json.loads(_strip_fences(msg.content[0].text.strip()))
+        by_index = {obj["i"]: obj["text"] for obj in translated}
+        result = list(items)
+        for i, text in by_index.items():
+            result[i] = result[i].model_copy(update={"excerpt": text})
+        return result
+    except (json.JSONDecodeError, KeyError):
+        # Malformed response — return items with untranslated excerpts rather than crashing
+        return items
 
 
 def _build_article_context(articles: list[dict]) -> str:
@@ -189,7 +195,10 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
         messages=[{"role": "user", "content": user_message}],
     )
 
-    data = json.loads(_strip_fences(message.content[0].text.strip()))
+    try:
+        data = json.loads(_strip_fences(message.content[0].text.strip()))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse briefing response as JSON: {e}") from e
 
     # Bundle (datetime, url, source) per article, most recent first, deduplicated by url
     seen: set[str] = set()

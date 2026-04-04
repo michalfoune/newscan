@@ -28,11 +28,13 @@ def fetch_articles(topics: list[str], max_per_topic: int = 5) -> list[dict]:
             if not url or url in seen_urls:
                 continue
             seen_urls.add(url)
-            body = article.get("body") or ""
+            raw_body = article.get("body") or ""
+            # Strip characters that can corrupt JSON when Claude echoes them back
+            body = raw_body[:1500].replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
             articles.append({
                 "topic": topic,
-                "title": article.get("title", "").strip(),
-                "body": body[:1500].strip(),
+                "title": article.get("title", "").strip().replace("\\", " ").replace('"', "'"),
+                "body": body,
                 "source": article.get("source", {}).get("title", "Unknown"),
                 "datetime": article.get("dateTime", ""),
                 "url": url,
