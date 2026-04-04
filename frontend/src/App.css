@@ -187,6 +187,12 @@ textarea::placeholder {
 }
 
 /* Error */
+.no-results {
+  font-size: 0.9rem;
+  color: #888;
+  line-height: 1.6;
+}
+
 .error-banner {
   padding: 0.875rem 1rem;
   background: #fdf0ef;

@@ -19,6 +19,8 @@ export interface Translations {
   whyItMatters: string;
   fromTheSource: string;
   readOriginal: string;
+  noResults: string;
+  noResultsForTopics: (topics: string[]) => string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -43,6 +45,8 @@ export const translations: Record<Language, Translations> = {
     whyItMatters: 'Why it matters',
     fromTheSource: 'From the source',
     readOriginal: 'Read original →',
+    noResults: 'No recent articles found for your query. Try rephrasing or broadening your request.',
+    noResultsForTopics: (topics) => `No recent articles found for: ${topics.join(', ')}.`,
   },
   cs: {
     tagline: 'Zůstaňte informováni bez emočního přetížení.',
@@ -65,5 +69,7 @@ export const translations: Record<Language, Translations> = {
     whyItMatters: 'Proč je to důležité',
     fromTheSource: 'Ze zdroje',
     readOriginal: 'Přečíst originál →',
+    noResults: 'Pro váš dotaz nebyly nalezeny žádné aktuální články. Zkuste dotaz přeformulovat nebo rozšířit.',
+    noResultsForTopics: (topics) => `Žádné aktuální články nebyly nalezeny pro: ${topics.join(', ')}.`,
   },
 };

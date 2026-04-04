@@ -15,6 +15,7 @@ export interface BriefingItem {
 export interface BriefingResponse {
   items: BriefingItem[];
   generated_at: string;
+  missing_topics: string[];
 }
 
 export interface BriefingRequest {

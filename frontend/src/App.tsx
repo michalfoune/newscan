@@ -62,7 +62,13 @@ export default function App() {
       <main className="app-main">
         <BriefingForm onSubmit={handleSubmit} loading={loading} t={t} language={language} />
         {error && <div className="error-banner">{error}</div>}
-        {response && <BriefingFeed response={response} t={t} />}
+        {response && response.items.length === 0 && (
+          <p className="no-results">{t.noResults}</p>
+        )}
+        {response && response.items.length > 0 && <BriefingFeed response={response} t={t} />}
+        {response && response.missing_topics.length > 0 && (
+          <p className="no-results">{t.noResultsForTopics(response.missing_topics)}</p>
+        )}
       </main>
     </div>
   );

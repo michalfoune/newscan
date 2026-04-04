@@ -117,6 +117,15 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     # Pass 2: fetch real articles
     articles = fetch_articles(topics)
 
+    now = datetime.now(timezone.utc)
+
+    if not articles:
+        return BriefingResponse(items=[], generated_at=now.isoformat(), missing_topics=topics)
+
+    # Identify which topics returned no articles
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in topics if t not in topics_with_articles]
+
     # Pass 3: generate briefing grounded in real articles
     lang_instruction = {
         "en": "Respond entirely in English (US).",
@@ -130,9 +139,14 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
         system += f"\n\nUser's persistent preferences:\n{req.system_preferences.strip()}"
 
     article_context = _build_article_context(articles)
+    missing_note = (
+        f"\nNote: No articles were found for these topics, do NOT generate items for them: {', '.join(missing_topics)}"
+        if missing_topics else ""
+    )
     user_message = (
         f"User request: {req.request}\n\n"
         f"Article excerpts to draw from:\n{article_context}"
+        f"{missing_note}"
     )
 
     message = client.messages.create(
@@ -144,7 +158,6 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
 
     data = json.loads(_strip_fences(message.content[0].text.strip()))
 
-    now = datetime.now(timezone.utc)
     # Bundle (datetime, url, source) per article, most recent first, deduplicated by url
     seen: set[str] = set()
     article_meta: list[tuple[str, str, str, str]] = []
@@ -160,10 +173,13 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
             ))
 
     items = []
-    for i, item in enumerate(data["items"]):
+    for i, raw_item in enumerate(data["items"]):
+        # Drop placeholder items Claude generates for topics with no articles
+        if raw_item.get("category", "").upper() == "UNAVAILABLE":
+            continue
         published_at, url, source, excerpt = article_meta[i % len(article_meta)] if article_meta else (now.isoformat(), "", "", "")
         items.append(BriefingItem(
-            **item,
+            **raw_item,
             published_at=published_at,
             url=url or None,
             source=source or None,
@@ -176,4 +192,5 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     return BriefingResponse(
         items=items,
         generated_at=now.isoformat(),
+        missing_topics=missing_topics,
     )

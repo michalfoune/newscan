@@ -30,3 +30,4 @@ class BriefingRequest(BaseModel):
 class BriefingResponse(BaseModel):
     items: List[BriefingItem]
     generated_at: str
+    missing_topics: List[str] = []
