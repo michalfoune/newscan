@@ -37,10 +37,13 @@ Schema:
       "summary": "2–3 sentence factual summary.",
       "category": "Category label",
       "why_it_matters": "One sentence. Omit if not helpful.",
-      "tone": "positive" | "neutral" | "concerning"
+      "tone": "positive" | "neutral" | "concerning",
+      "no_articles": false
     }
   ]
-}"""
+}
+
+IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -175,7 +178,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     items = []
     for i, raw_item in enumerate(data["items"]):
         # Drop placeholder items Claude generates for topics with no articles
-        if raw_item.get("category", "").upper() == "UNAVAILABLE":
+        if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
             continue
         published_at, url, source, excerpt = article_meta[i % len(article_meta)] if article_meta else (now.isoformat(), "", "", "")
         items.append(BriefingItem(
