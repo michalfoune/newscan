@@ -28,12 +28,12 @@ export const translations: Record<Language, Translations> = {
     tagline: 'Stay informed without emotional overload.',
     requestLabel: 'What would you like to know?',
     requestPlaceholder:
-      'e.g. Give me one update on the Russia-Ukraine situation, then some good news from science or wildlife.',
+      'e.g. Update me on the war in Iran.',
     prefsToggleShow: '+ Persistent preferences',
     prefsToggleHide: '− Hide preferences',
     prefsLabel: 'General rules for every briefing',
     prefsPlaceholder:
-      'e.g. Never include more than 1 concerning story. Keep tone calm and factual. No detailed war coverage.',
+      'e.g. No graphic war details. At least 1 positive story. No celebrity news. Max 30% negative content. Only what materially changed since yesterday.',
     submit: 'Run',
     generating: 'Generating…',
     stories: (n) => `${n} ${n === 1 ? 'story' : 'stories'}`,
@@ -52,12 +52,12 @@ export const translations: Record<Language, Translations> = {
     tagline: 'Zůstaňte informováni bez emočního přetížení.',
     requestLabel: 'Co byste chtěli vědět?',
     requestPlaceholder:
-      'Např. Dej mi jednu aktualizaci o situaci na Ukrajině a pak dobré zprávy z vědy nebo přírody.',
+      'Např.: Informuj mě o válce v Íránu.',
     prefsToggleShow: '+ Trvalé předvolby',
     prefsToggleHide: '− Skrýt předvolby',
     prefsLabel: 'Obecná pravidla pro každý přehled',
     prefsPlaceholder:
-      'Např. Nezahrnuj více než 1 znepokojivý příběh. Udržuj klidný a věcný tón. Žádné detailní zpravodajství o válkách.',
+      'Např. Žádné grafické detaily o válce. Alespoň 1 pozitivní příběh. Žádné zprávy o celebritách. Max 30 % negativního obsahu. Jen co se od včerejška skutečně změnilo.',
     submit: 'Spustit',
     generating: 'Generuji…',
     stories: (n) => `${n} ${n === 1 ? 'příběh' : n < 5 ? 'příběhy' : 'příběhů'}`,
