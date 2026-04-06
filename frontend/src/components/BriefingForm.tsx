@@ -33,6 +33,12 @@ export function BriefingForm({ onSubmit, loading, t, language }: Props) {
         id="request"
         value={request}
         onChange={(e) => setRequest(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (request.trim() && !loading) handleSubmit(e as unknown as React.FormEvent);
+          }
+        }}
         placeholder={t.requestPlaceholder}
         rows={3}
         disabled={loading}
