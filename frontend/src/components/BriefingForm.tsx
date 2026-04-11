@@ -35,11 +35,9 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language }: Pro
 
   if (collapsed && hasResults && !loading) {
     return (
-      <div className="briefing-collapsed">
+      <div className="briefing-collapsed" onClick={handleEdit} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleEdit(); }}>
         <span className="briefing-collapsed-query">{submittedRequest}</span>
-        <button className="briefing-edit-btn" onClick={handleEdit} type="button">
-          Edit
-        </button>
       </div>
     );
   }
