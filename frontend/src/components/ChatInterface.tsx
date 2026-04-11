@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '../types';
 import { Translations } from '../translations';
 
+function renderMarkdown(text: string): React.ReactNode[] {
+  // Split on **bold** markers and render accordingly
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+  );
+}
+
 interface Props {
   context: string;
   language: string;
@@ -49,10 +56,16 @@ export function ChatInterface({ context, language, t, apiUrl }: Props) {
         <div className="chat-messages">
           {messages.map((m, i) => (
             <div key={i} className={`chat-msg chat-msg--${m.role}`}>
-              {m.content}
+              {renderMarkdown(m.content)}
             </div>
           ))}
-          {sending && <div className="chat-msg chat-msg--assistant chat-msg--typing">…</div>}
+          {sending && (
+        <div className="chat-msg chat-msg--assistant chat-msg--typing">
+          <span className="dot" />
+          <span className="dot" />
+          <span className="dot" />
+        </div>
+      )}
           <div ref={bottomRef} />
         </div>
       )}

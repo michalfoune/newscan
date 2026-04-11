@@ -77,6 +77,7 @@ export default function App() {
         {response && response.items.length > 0 && (
           <>
             <BriefingFeed response={response} t={t} />
+            <div className="section-divider" />
             <ChatInterface
               context={buildChatContext(response)}
               language={language}

@@ -111,13 +111,19 @@ interface Props {
   t: Translations;
 }
 
+const INITIAL_VISIBLE = 2;
+
 export function BriefingFeed({ response, t }: Props) {
   const [selected, setSelected] = useState<BriefingItem | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const time = new Date(response.generated_at).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const visibleItems = expanded ? response.items : response.items.slice(0, INITIAL_VISIBLE);
+  const hasMore = response.items.length > INITIAL_VISIBLE;
 
   return (
     <>
@@ -128,10 +134,18 @@ export function BriefingFeed({ response, t }: Props) {
         </div>
 
         <div className="feed-grid">
-          {response.items.map((item, i) => (
+          {visibleItems.map((item, i) => (
             <FeedItem key={i} item={item} t={t} onClick={() => setSelected(item)} />
           ))}
         </div>
+
+        {hasMore && (
+          <div className="feed-see-more">
+            <button className="feed-see-more-btn" onClick={() => setExpanded(!expanded)}>
+              {expanded ? 'Show less' : `See more news (${response.items.length - INITIAL_VISIBLE} more)`}
+            </button>
+          </div>
+        )}
 
         {response.overall_summary && (
           <div className="overall-summary">
