@@ -31,6 +31,7 @@ Output: Return ONLY a valid JSON object. No markdown, no code fences, no text ou
 
 Schema:
 {
+  "overall_summary": "2–3 sentence synthesis of the full briefing. What is the big picture?",
   "items": [
     {
       "headline": "Calm, factual headline",
@@ -233,8 +234,19 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     if req.language == "cs":
         items = _translate_excerpts(items, client)
 
+    overall_summary = data.get("overall_summary")
+    if overall_summary and req.language == "cs":
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            system="Translate the following text to Czech. Return only the translated text, nothing else.",
+            messages=[{"role": "user", "content": overall_summary}],
+        )
+        overall_summary = msg.content[0].text.strip()
+
     return BriefingResponse(
         items=items,
+        overall_summary=overall_summary,
         generated_at=now.isoformat(),
         missing_topics=missing_topics,
     )

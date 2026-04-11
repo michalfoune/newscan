@@ -14,8 +14,14 @@ export interface BriefingItem {
 
 export interface BriefingResponse {
   items: BriefingItem[];
+  overall_summary?: string;
   generated_at: string;
   missing_topics: string[];
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface BriefingRequest {

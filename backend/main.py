@@ -3,8 +3,9 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from models import BriefingRequest, BriefingResponse
+from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse
 from briefing import generate_briefing
+from chat import answer_followup
 
 app = FastAPI(title="Newscan API")
 
@@ -26,5 +27,13 @@ def health():
 def create_briefing(req: BriefingRequest):
     try:
         return generate_briefing(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    try:
+        return answer_followup(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

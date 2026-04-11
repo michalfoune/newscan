@@ -21,6 +21,10 @@ export interface Translations {
   readOriginal: string;
   noResults: string;
   noResultsForTopics: (topics: string[]) => string;
+  overallSummaryLabel: string;
+  chatPlaceholder: string;
+  chatSend: string;
+  chatSending: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -47,12 +51,16 @@ export const translations: Record<Language, Translations> = {
     readOriginal: 'Read original →',
     noResults: 'No recent articles found for your query. Try rephrasing or broadening your request.',
     noResultsForTopics: (topics) => `No recent articles found for: ${topics.join(', ')}.`,
+    overallSummaryLabel: 'Overview',
+    chatPlaceholder: 'Ask a follow-up question…',
+    chatSend: 'Send',
+    chatSending: 'Sending…',
   },
   cs: {
     tagline: 'Zůstaňte informováni bez emočního přetížení.',
     requestLabel: 'Co byste chtěli vědět?',
     requestPlaceholder:
-      'Např.: Informuj mě o válce v Íránu.',
+      'Např. Informuj mě o válce v Íránu.',
     prefsToggleShow: '+ Trvalé předvolby',
     prefsToggleHide: '− Skrýt předvolby',
     prefsLabel: 'Obecná pravidla pro každý přehled',
@@ -71,5 +79,9 @@ export const translations: Record<Language, Translations> = {
     readOriginal: 'Přečíst originál →',
     noResults: 'Pro váš dotaz nebyly nalezeny žádné aktuální články. Zkuste dotaz přeformulovat nebo rozšířit.',
     noResultsForTopics: (topics) => `Žádné aktuální články nebyly nalezeny pro: ${topics.join(', ')}.`,
+    overallSummaryLabel: 'Přehled',
+    chatPlaceholder: 'Položte doplňující otázku…',
+    chatSend: 'Odeslat',
+    chatSending: 'Odesílám…',
   },
 };

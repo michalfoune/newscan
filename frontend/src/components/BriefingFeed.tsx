@@ -20,15 +20,7 @@ function formatPublishedAt(iso: string, t: Translations): string {
 // Modal
 // ---------------------------------------------------------------------------
 
-function ArticleModal({
-  item,
-  t,
-  onClose,
-}: {
-  item: BriefingItem;
-  t: Translations;
-  onClose: () => void;
-}) {
+function ArticleModal({ item, t, onClose }: { item: BriefingItem; t: Translations; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -39,42 +31,28 @@ function ArticleModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
-
         <div className="modal-meta">
           <span className="category">{item.category}</span>
-          <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>
-            {t.toneLabels[item.tone]}
-          </span>
+          <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>{t.toneLabels[item.tone]}</span>
           <span className="published-at">{formatPublishedAt(item.published_at, t)}</span>
         </div>
-
         <h2 className="modal-headline">{item.headline}</h2>
         <p className="modal-summary">{item.summary}</p>
-
         {item.why_it_matters && (
           <p className="why-it-matters">
             <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
           </p>
         )}
-
         {item.excerpt && (
           <div className="modal-excerpt">
             <p className="modal-excerpt-label">{t.fromTheSource}</p>
             <p className="modal-excerpt-text">{item.excerpt}</p>
           </div>
         )}
-
         <div className="modal-footer">
-          {item.source && (
-            <span className="modal-source">{item.source}</span>
-          )}
+          {item.source && <span className="modal-source">{item.source}</span>}
           {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="modal-read-original"
-            >
+            <a href={item.url} target="_blank" rel="noopener noreferrer" className="modal-read-original">
               {t.readOriginal}
             </a>
           )}
@@ -85,18 +63,10 @@ function ArticleModal({
 }
 
 // ---------------------------------------------------------------------------
-// Feed item card
+// Grid card
 // ---------------------------------------------------------------------------
 
-function FeedItem({
-  item,
-  t,
-  onClick,
-}: {
-  item: BriefingItem;
-  t: Translations;
-  onClick: () => void;
-}) {
+function FeedItem({ item, t, onClick }: { item: BriefingItem; t: Translations; onClick: () => void }) {
   return (
     <article
       className={`feed-item feed-item--${item.tone}`}
@@ -107,9 +77,7 @@ function FeedItem({
     >
       <div className="feed-item-meta">
         <span className="category">{item.category}</span>
-        <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>
-          {t.toneLabels[item.tone]}
-        </span>
+        <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>{t.toneLabels[item.tone]}</span>
         <span className="published-at">{formatPublishedAt(item.published_at, t)}</span>
       </div>
       <h2 className="feed-item-headline">{item.headline}</h2>
@@ -127,7 +95,7 @@ function FeedItem({
           className="card-read-original"
           onClick={(e) => e.stopPropagation()}
         >
-          Read original →
+          {t.readOriginal}
         </a>
       )}
     </article>
@@ -158,14 +126,22 @@ export function BriefingFeed({ response, t }: Props) {
           <span className="feed-count">{t.stories(response.items.length)}</span>
           <span className="feed-time">{t.generatedAt(time)}</span>
         </div>
-        {response.items.map((item, i) => (
-          <FeedItem key={i} item={item} t={t} onClick={() => setSelected(item)} />
-        ))}
+
+        <div className="feed-grid">
+          {response.items.map((item, i) => (
+            <FeedItem key={i} item={item} t={t} onClick={() => setSelected(item)} />
+          ))}
+        </div>
+
+        {response.overall_summary && (
+          <div className="overall-summary">
+            <p className="overall-summary-label">{t.overallSummaryLabel}</p>
+            <p className="overall-summary-text">{response.overall_summary}</p>
+          </div>
+        )}
       </section>
 
-      {selected && (
-        <ArticleModal item={selected} t={t} onClose={() => setSelected(null)} />
-      )}
+      {selected && <ArticleModal item={selected} t={t} onClose={() => setSelected(null)} />}
     </>
   );
 }

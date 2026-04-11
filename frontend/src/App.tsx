@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
+import { ChatInterface } from './components/ChatInterface';
 import { BriefingRequest, BriefingResponse } from './types';
 import { Language, translations } from './translations';
 import './App.css';
@@ -9,6 +10,19 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const LANG_LABELS: Record<Language, string> = { en: '🇺🇸 English', cs: '🇨🇿 Čeština' };
 const OTHER_LANG: Record<Language, Language> = { en: 'cs', cs: 'en' };
+
+function buildChatContext(response: BriefingResponse): string {
+  const lines: string[] = [];
+  if (response.overall_summary) lines.push(`Overview: ${response.overall_summary}\n`);
+  for (const item of response.items) {
+    lines.push(`Headline: ${item.headline}`);
+    lines.push(`Summary: ${item.summary}`);
+    if (item.why_it_matters) lines.push(`Why it matters: ${item.why_it_matters}`);
+    if (item.excerpt) lines.push(`Source excerpt: ${item.excerpt}`);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('en');
@@ -21,6 +35,7 @@ export default function App() {
   const handleSubmit = async (req: BriefingRequest) => {
     setLoading(true);
     setError(null);
+    setResponse(null);
     try {
       const res = await fetch(`${API_URL}/api/briefing`, {
         method: 'POST',
@@ -43,10 +58,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="lang-switcher">
-          <button
-            className="lang-btn"
-            onClick={() => setLanguage(OTHER_LANG[language])}
-          >
+          <button className="lang-btn" onClick={() => setLanguage(OTHER_LANG[language])}>
             {LANG_LABELS[OTHER_LANG[language]]}
           </button>
         </div>
@@ -62,7 +74,17 @@ export default function App() {
         {response && response.items.length === 0 && (
           <p className="no-results">{t.noResults}</p>
         )}
-        {response && response.items.length > 0 && <BriefingFeed response={response} t={t} />}
+        {response && response.items.length > 0 && (
+          <>
+            <BriefingFeed response={response} t={t} />
+            <ChatInterface
+              context={buildChatContext(response)}
+              language={language}
+              t={t}
+              apiUrl={API_URL}
+            />
+          </>
+        )}
       </main>
     </div>
   );

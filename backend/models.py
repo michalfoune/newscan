@@ -29,5 +29,21 @@ class BriefingRequest(BaseModel):
 
 class BriefingResponse(BaseModel):
     items: List[BriefingItem]
+    overall_summary: Optional[str] = None
     generated_at: str
     missing_topics: List[str] = []
+
+
+class ChatMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    context: str  # briefing content as plain text
+    language: str = "en"
+
+
+class ChatResponse(BaseModel):
+    reply: str
