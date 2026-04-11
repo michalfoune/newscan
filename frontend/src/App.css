@@ -77,7 +77,7 @@ body {
 }
 
 .app-main {
-  max-width: 680px;
+  max-width: 960px;
   width: 100%;
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
@@ -91,6 +91,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  max-width: 960px;
 }
 
 .field-label {
