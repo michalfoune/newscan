@@ -5,24 +5,44 @@ import { Language, Translations } from '../translations';
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
   loading: boolean;
+  hasResults: boolean;
   t: Translations;
   language: Language;
 }
 
-export function BriefingForm({ onSubmit, loading, t, language }: Props) {
+export function BriefingForm({ onSubmit, loading, hasResults, t, language }: Props) {
   const [request, setRequest] = useState('');
   const [preferences, setPreferences] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
+  const [submittedRequest, setSubmittedRequest] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!request.trim()) return;
+    setSubmittedRequest(request.trim());
+    setCollapsed(true);
     onSubmit({
       request: request.trim(),
       system_preferences: preferences.trim() || undefined,
       language,
     });
   };
+
+  const handleEdit = () => {
+    setCollapsed(false);
+  };
+
+  if (collapsed && hasResults && !loading) {
+    return (
+      <div className="briefing-collapsed">
+        <span className="briefing-collapsed-query">{submittedRequest}</span>
+        <button className="briefing-edit-btn" onClick={handleEdit} type="button">
+          Edit
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="briefing-form">
