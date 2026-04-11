@@ -57,15 +57,15 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="lang-switcher">
+        <div className="app-title-row">
+          <h1 className="app-title">
+            <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
+            Rizma Brief
+          </h1>
           <button className="lang-btn" onClick={() => setLanguage(OTHER_LANG[language])}>
             {LANG_LABELS[OTHER_LANG[language]]}
           </button>
         </div>
-        <h1 className="app-title">
-          <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
-          Rizma Brief
-        </h1>
         <p className="app-tagline">{t.tagline}</p>
       </header>
       <main className="app-main">
