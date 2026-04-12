@@ -93,9 +93,12 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
             >?</button>
             {tooltipVisible && (
               <div className="mode-tooltip">
-                {t.modeTooltip.split('\n').map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
+                {t.modeTooltip.split('\n').map((line, i) => {
+                  const colon = line.indexOf(':');
+                  return colon > -1
+                    ? <p key={i}><strong>{line.slice(0, colon)}</strong>{line.slice(colon)}</p>
+                    : <p key={i}>{line}</p>;
+                })}
               </div>
             )}
           </div>

@@ -23,6 +23,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode }: Pro
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,6 +98,27 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode }: Pro
             {t.modeLabels[m]}
           </button>
         ))}
+        <div className="mode-tooltip-wrap">
+          <button
+            type="button"
+            className="mode-help-btn"
+            onMouseEnter={() => setTooltipVisible(true)}
+            onMouseLeave={() => setTooltipVisible(false)}
+            onFocus={() => setTooltipVisible(true)}
+            onBlur={() => setTooltipVisible(false)}
+            aria-label="Mode descriptions"
+          >?</button>
+          {tooltipVisible && (
+            <div className="mode-tooltip">
+              {t.modeTooltip.split('\n').map((line, i) => {
+                const colon = line.indexOf(':');
+                return colon > -1
+                  ? <p key={i}><strong>{line.slice(0, colon)}</strong>{line.slice(colon)}</p>
+                  : <p key={i}>{line}</p>;
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
