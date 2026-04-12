@@ -84,6 +84,7 @@ export default function App() {
               language={language}
               t={t}
               apiUrl={API_URL}
+              initialMode={mode}
             />
           </>
         )}

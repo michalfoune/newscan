@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChatMessage } from '../types';
+import { ChatMessage, Mode } from '../types';
 import { Translations } from '../translations';
 
 function renderMarkdown(text: string): React.ReactNode[] {
-  // Split on **bold** markers and render accordingly
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     i % 2 === 1 ? <strong key={i}>{part}</strong> : part
   );
 }
+
+const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
 interface Props {
   context: string;
   language: string;
   t: Translations;
   apiUrl: string;
+  initialMode: Mode;
 }
 
-export function ChatInterface({ context, language, t, apiUrl }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [chatMode, setChatMode] = useState<Mode>(initialMode);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export function ChatInterface({ context, language, t, apiUrl }: Props) {
       const res = await fetch(`${apiUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next, context, language }),
+        body: JSON.stringify({ messages: next, context, language, mode: chatMode }),
       });
       const data = await res.json();
       setMessages([...next, { role: 'assistant', content: data.reply }]);
@@ -81,6 +84,19 @@ export function ChatInterface({ context, language, t, apiUrl }: Props) {
         <button className="chat-send-btn" onClick={send} disabled={sending || !input.trim()}>
           {sending ? t.chatSending : t.chatSend}
         </button>
+      </div>
+      <div className="mode-pills">
+        {MODES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            className={`mode-pill mode-pill--${m}${chatMode === m ? ' mode-pill--active' : ''}`}
+            onClick={() => setChatMode(m)}
+            disabled={sending}
+          >
+            {t.modeLabels[m]}
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -44,6 +44,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     context: str  # briefing content as plain text
     language: str = "en"
+    mode: str = "balanced"  # "calm" | "balanced" | "brave"
 
 
 class ChatResponse(BaseModel):

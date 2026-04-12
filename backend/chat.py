@@ -20,6 +20,12 @@ Guidelines:
 - If even after supplemental articles the answer is unclear, use your general knowledge and note it briefly
 - Use measured, factual language consistent with the briefing tone"""
 
+CHAT_MODE_INSTRUCTIONS: dict = {
+    "calm": "Tone: Use gentle, reassuring language. Avoid alarming words. Frame difficult facts with context. Keep answers brief.",
+    "balanced": "Tone: Be honest and clear without sensationalism. Balanced, measured responses.",
+    "brave": "Tone: Direct, journalistic. Report facts plainly without softening. Full detail where relevant.",
+}
+
 CLASSIFIER_PROMPT = """You are a routing assistant. Given a briefing context and a user question, decide whether the question can be answered SPECIFICALLY AND DIRECTLY from the context alone.
 
 Return ONLY valid JSON with this shape:
@@ -119,8 +125,10 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
     if supplemental:
         context_block += f"\n\n---\n{supplemental}"
 
+    mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["balanced"])
     system = (
         CHAT_SYSTEM
+        + f"\n\n{mode_instruction}"
         + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
         + f"\n\nBriefing context:\n{context_block}"
     )
