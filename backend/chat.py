@@ -1,18 +1,23 @@
 import json
+import logging
 from typing import Optional, Tuple
 import anthropic
 from models import ChatRequest, ChatResponse
 from news import fetch_articles
 
-CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant.
+logger = logging.getLogger(__name__)
+
+CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant with the ability to fetch fresh news articles.
 
 The user has just received a news briefing. Your job is to answer follow-up questions about the news.
+
+IMPORTANT: You have a backend news-fetching capability. When the user asks for more articles or information not in the briefing, fresh articles are automatically retrieved and included in the context under "Supplemental articles fetched for this question". Use those articles to answer.
 
 Guidelines:
 - Answer based on the provided briefing context and any supplemental articles supplied
 - Keep answers concise and calm — this is a news digest, not a debate
-- If supplemental articles were fetched but still don't fully answer the question, use your general knowledge to fill in the gaps — just note briefly when you are doing so
-- Only say something is unknown if you genuinely have no reliable information about it
+- Never say you cannot browse the internet or look up articles — you can, via the backend fetch
+- If even after supplemental articles the answer is unclear, use your general knowledge and note it briefly
 - Use measured, factual language consistent with the briefing tone"""
 
 CLASSIFIER_PROMPT = """You are a routing assistant. Given a briefing context and a user question, decide whether the question can be answered SPECIFICALLY AND DIRECTLY from the context alone.
@@ -21,12 +26,15 @@ Return ONLY valid JSON with this shape:
 {"answerable": true/false, "search_query": "concise search terms if not answerable, else null"}
 
 Rules:
-- answerable: true  → the context EXPLICITLY contains the specific information needed to answer the question
-- answerable: false → the specific detail asked about is absent from the context, even if the general topic is present
+- answerable: true  → the context EXPLICITLY contains the specific information needed
+- answerable: false → the specific detail is absent from the context, OR the user is explicitly asking to look up / find / search for more articles or information
 - When in doubt, prefer answerable: false so fresh articles can be fetched
-- search_query      → a short keyword query for a news search (e.g. "Lebanon ceasefire 2026")
+- search_query → a short keyword query derived from the conversation topic (e.g. "Lebanon ceasefire Iran war 2026")
 
-Example: context covers Iran war broadly, user asks about Lebanon ceasefire specifically → answerable: false, search_query: "Lebanon ceasefire Iran war 2026\""""
+Examples:
+- Context covers Iran war broadly, user asks about Lebanon ceasefire → answerable: false, search_query: "Lebanon ceasefire Iran war 2026"
+- User says "can you look up more articles" or "find more info" → answerable: false, search_query: infer from the conversation topic
+- User asks about something explicitly stated in the context → answerable: true"""
 
 
 def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
@@ -51,9 +59,12 @@ def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
             if raw.startswith("json"):
                 raw = raw[4:]
         data = json.loads(raw)
-        return bool(data.get("answerable", True)), data.get("search_query")
-    except Exception:
-        # On any failure, fall back to answering from existing context
+        answerable = bool(data.get("answerable", True))
+        search_query = data.get("search_query")
+        logger.info(f"[classify] answerable={answerable} search_query={search_query!r}")
+        return answerable, search_query
+    except Exception as e:
+        logger.warning(f"[classify] failed ({e}), defaulting to answerable=True")
         return True, None
 
 
@@ -61,6 +72,7 @@ def _build_supplemental_context(search_query: str) -> str:
     """Fetch fresh articles and format them as supplemental context."""
     try:
         articles = fetch_articles([search_query], max_per_topic=4)
+        logger.info(f"[supplemental] fetched {len(articles)} articles for query={search_query!r}")
         if not articles:
             return ""
         lines = ["Supplemental articles fetched for this question:"]
@@ -70,7 +82,8 @@ def _build_supplemental_context(search_query: str) -> str:
             if a.get("body"):
                 lines.append(f"Body: {a['body']}")
         return "\n".join(lines)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"[supplemental] fetch failed: {e}")
         return ""
 
 
@@ -85,13 +98,21 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
         (m.content for m in reversed(req.messages) if m.role == "user"), ""
     )
 
+    # Include recent conversation for context when classifying (last 3 exchanges)
+    recent_history = "\n".join(
+        f"{m.role.upper()}: {m.content}" for m in req.messages[-6:]
+    )
+
     # Step 1: classify
-    answerable, search_query = _classify(req.context, last_user_msg)
+    answerable, search_query = _classify(req.context, f"Recent conversation:\n{recent_history}\n\nLatest question: {last_user_msg}")
 
     # Step 2: optionally fetch supplemental articles
     supplemental = ""
     if not answerable and search_query:
+        logger.info(f"[chat] not answerable from context, fetching: {search_query!r}")
         supplemental = _build_supplemental_context(search_query)
+    else:
+        logger.info(f"[chat] answerable from context, skipping fetch")
 
     # Step 3: build system prompt with context (+ supplemental if any)
     context_block = req.context
