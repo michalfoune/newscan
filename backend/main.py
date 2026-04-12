@@ -7,7 +7,7 @@ from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse
 from briefing import generate_briefing
 from chat import answer_followup
 
-app = FastAPI(title="Newscan API")
+app = FastAPI(title="Rizma Brief API")
 
 app.add_middleware(
     CORSMiddleware,
