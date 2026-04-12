@@ -25,6 +25,7 @@ class BriefingRequest(BaseModel):
     request: str
     system_preferences: Optional[str] = None
     language: str = "en"
+    mode: str = "balanced"  # "calm" | "balanced" | "brave"
 
 
 class BriefingResponse(BaseModel):

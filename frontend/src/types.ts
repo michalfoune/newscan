@@ -24,8 +24,11 @@ export interface ChatMessage {
   content: string;
 }
 
+export type Mode = 'calm' | 'balanced' | 'brave';
+
 export interface BriefingRequest {
   request: string;
   system_preferences?: string;
   language: string;
+  mode: Mode;
 }

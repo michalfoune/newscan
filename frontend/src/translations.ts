@@ -13,6 +13,8 @@ export interface Translations {
   stories: (n: number) => string;
   generatedAt: (t: string) => string;
   toneLabels: { positive: string; neutral: string; concerning: string };
+  modeLabels: { calm: string; balanced: string; brave: string };
+  modeTooltip: string;
   timeJustNow: string;
   timeHoursAgo: (h: number) => string;
   timeYesterday: (time: string) => string;
@@ -43,6 +45,8 @@ export const translations: Record<Language, Translations> = {
     stories: (n) => `${n} ${n === 1 ? 'story' : 'stories'}`,
     generatedAt: (t) => `Generated at ${t}`,
     toneLabels: { positive: 'Positive', neutral: 'Neutral', concerning: 'Concerning' },
+    modeLabels: { calm: 'Calm', balanced: 'Balanced', brave: 'Brave' },
+    modeTooltip: 'Calm: gentle framing, max 3 stories, no graphic content.\nBalanced: honest coverage without sensationalism.\nBrave: full, unfiltered news awareness.',
     timeJustNow: 'Just now',
     timeHoursAgo: (h) => `${h}h ago`,
     timeYesterday: (time) => `Yesterday, ${time}`,
@@ -71,6 +75,8 @@ export const translations: Record<Language, Translations> = {
     stories: (n) => `${n} ${n === 1 ? 'příběh' : n < 5 ? 'příběhy' : 'příběhů'}`,
     generatedAt: (t) => `Vygenerováno v ${t}`,
     toneLabels: { positive: 'Pozitivní', neutral: 'Neutrální', concerning: 'Znepokojivé' },
+    modeLabels: { calm: 'Klidný', balanced: 'Vyvážený', brave: 'Odvážný' },
+    modeTooltip: 'Klidný: jemné podání, max 3 příběhy, žádný grafický obsah.\nVyvážený: upřímné zprávy bez senzacechtivosti.\nOdvážný: úplné, nefiltrované zpravodajství.',
     timeJustNow: 'Právě teď',
     timeHoursAgo: (h) => `před ${h}h`,
     timeYesterday: (time) => `Včera v ${time}`,

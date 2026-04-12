@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
-import { BriefingRequest, BriefingResponse } from './types';
+import { BriefingRequest, BriefingResponse, Mode } from './types';
 import { Language, translations } from './translations';
 import './App.css';
 
@@ -26,6 +26,7 @@ function buildChatContext(response: BriefingResponse): string {
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('en');
+  const [mode, setMode] = useState<Mode>('balanced');
   const [response, setResponse] = useState<BriefingResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export default function App() {
         <p className="app-tagline">{t.tagline}</p>
       </header>
       <main className="app-main">
-        <BriefingForm onSubmit={handleSubmit} loading={loading} hasResults={!!response && response.items.length > 0} t={t} language={language} />
+        <BriefingForm onSubmit={handleSubmit} loading={loading} hasResults={!!response && response.items.length > 0} t={t} language={language} mode={mode} onModeChange={setMode} />
         {error && <div className="error-banner">{error}</div>}
         {response && response.items.length === 0 && (
           <p className="no-results">{t.noResults}</p>

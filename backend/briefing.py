@@ -46,6 +46,32 @@ Schema:
 
 IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
 
+MODE_INSTRUCTIONS: dict = {
+    "calm": """
+Content mode: CALM
+- Return at most 3 news items total
+- No graphic, violent, or viscerally distressing details — describe outcomes without vivid imagery
+- Frame all concerning news with context and, where genuine, stabilizing perspective
+- Include at least 1 positive or neutral story even if the user's query is heavy
+- Use gentle, grounded language — avoid alarming words like "devastating", "catastrophic", "crisis"
+- Overall tone should feel like a calm, trusted friend summarizing the day, not a news anchor
+""",
+    "balanced": """
+Content mode: BALANCED
+- Return up to 6 news items
+- Cover news honestly but avoid sensationalism and graphic detail
+- Use measured, factual language; maintain a natural mix of tones
+- Apply any user preferences where set
+""",
+    "brave": """
+Content mode: BRAVE
+- Return up to 8 news items
+- Standard journalistic directness — report facts and outcomes as found in the source material
+- Do not soften language or filter for emotional impact
+- Suitable for users who want complete, unfiltered news awareness
+""",
+}
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -154,8 +180,9 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     # Pass 1: extract topics
     topics = _extract_topics(req.request, client)
 
-    # Pass 2: fetch real articles
-    articles = fetch_articles(topics)
+    # Pass 2: fetch real articles (fewer for Calm mode)
+    max_per_topic = {"calm": 3, "balanced": 5, "brave": 7}.get(req.mode, 5)
+    articles = fetch_articles(topics, max_per_topic=max_per_topic)
 
     now = datetime.now(timezone.utc)
 
@@ -171,8 +198,10 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
         "en": "Respond entirely in English (US).",
         "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
     }
+    mode_instruction = MODE_INSTRUCTIONS.get(req.mode, MODE_INSTRUCTIONS["balanced"])
     system = (
         BRIEFING_SYSTEM_PROMPT
+        + f"\n\n{mode_instruction.strip()}"
         + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
     )
     if req.system_preferences and req.system_preferences.strip():

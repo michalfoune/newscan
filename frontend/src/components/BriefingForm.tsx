@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BriefingRequest } from '../types';
+import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 
 interface Props {
@@ -8,14 +8,19 @@ interface Props {
   hasResults: boolean;
   t: Translations;
   language: Language;
+  mode: Mode;
+  onModeChange: (m: Mode) => void;
 }
 
-export function BriefingForm({ onSubmit, loading, hasResults, t, language }: Props) {
+const MODES: Mode[] = ['calm', 'balanced', 'brave'];
+
+export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode, onModeChange }: Props) {
   const [request, setRequest] = useState('');
   const [preferences, setPreferences] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
   const [submittedRequest, setSubmittedRequest] = useState('');
   const [collapsed, setCollapsed] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +31,7 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language }: Pro
       request: request.trim(),
       system_preferences: preferences.trim() || undefined,
       language,
+      mode,
     });
   };
 
@@ -62,13 +68,46 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language }: Pro
         disabled={loading}
       />
 
-      <button
-        type="button"
-        className="toggle-prefs"
-        onClick={() => setShowPreferences(!showPreferences)}
-      >
-        {showPreferences ? t.prefsToggleHide : t.prefsToggleShow}
-      </button>
+      <div className="mode-row">
+        <div className="mode-pills">
+          {MODES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`mode-pill mode-pill--${m}${mode === m ? ' mode-pill--active' : ''}`}
+              onClick={() => onModeChange(m)}
+              disabled={loading}
+            >
+              {t.modeLabels[m]}
+            </button>
+          ))}
+          <div className="mode-tooltip-wrap">
+            <button
+              type="button"
+              className="mode-help-btn"
+              onMouseEnter={() => setTooltipVisible(true)}
+              onMouseLeave={() => setTooltipVisible(false)}
+              onFocus={() => setTooltipVisible(true)}
+              onBlur={() => setTooltipVisible(false)}
+              aria-label="Mode descriptions"
+            >?</button>
+            {tooltipVisible && (
+              <div className="mode-tooltip">
+                {t.modeTooltip.split('\n').map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="toggle-prefs"
+          onClick={() => setShowPreferences(!showPreferences)}
+        >
+          {showPreferences ? t.prefsToggleHide : t.prefsToggleShow}
+        </button>
+      </div>
 
       {showPreferences && (
         <>
