@@ -8,7 +8,7 @@ import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const LANG_LABELS: Record<Language, string> = { en: '🇺🇸 English', cs: '🇨🇿 Čeština' };
+const LANG_LABELS: Record<Language, string> = { en: '🇺🇸 EN', cs: '🇨🇿 CS' };
 const OTHER_LANG: Record<Language, Language> = { en: 'cs', cs: 'en' };
 
 function buildChatContext(response: BriefingResponse): string {
