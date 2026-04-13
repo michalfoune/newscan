@@ -33,8 +33,7 @@ export const translations: Record<Language, Translations> = {
   en: {
     tagline: 'Stay informed without emotional overload.',
     requestLabel: 'What would you like to know?',
-    requestPlaceholder:
-      'e.g. Update me on the war in Iran.',
+    requestPlaceholder: 'e.g. What\'s the most important news today? Include one positive story.',
     prefsToggleShow: '+ Persistent preferences',
     prefsToggleHide: '− Hide preferences',
     prefsLabel: 'General rules for every briefing',
@@ -63,8 +62,7 @@ export const translations: Record<Language, Translations> = {
   cs: {
     tagline: 'Zůstaňte informováni bez emočního přetížení.',
     requestLabel: 'Co byste chtěli vědět?',
-    requestPlaceholder:
-      'Např. Informuj mě o válce v Íránu.',
+    requestPlaceholder: 'Např. Jaké jsou nejdůležitější zprávy dneška? Přidej jednu pozitivní zprávu.',
     prefsToggleShow: '+ Trvalé předvolby',
     prefsToggleHide: '− Skrýt předvolby',
     prefsLabel: 'Obecná pravidla pro každý přehled',
