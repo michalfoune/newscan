@@ -172,46 +172,43 @@ textarea::placeholder {
 .mode-pills {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 1rem;
 }
 
 .mode-pill {
-  padding: 0.25rem 0.75rem;
+  padding: 0.32rem 0.95rem;
   border-radius: 999px;
-  border: 1.5px solid #d8d5cf;
-  background: none;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #999;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.mode-pill:hover:not(:disabled) {
-  border-color: #aaa;
-  color: #555;
-}
-
-.mode-pill--calm.mode-pill--active {
-  background: #4838a8;
-  border-color: #4838a8;
+  border: none;
+  font-size: 1rem;
+  font-weight: 400;
   color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s, filter 0.15s;
+  filter: saturate(0.55) brightness(1.1);
+  opacity: 0.85;
 }
+
+.mode-pill--calm     { background: #4838a8; filter: saturate(0.35) brightness(1.35); opacity: 0.75; }
+.mode-pill--balanced { background: #5c9e6e; }
+.mode-pill--brave    { background: #e07040; filter: saturate(0.45) brightness(1.2); opacity: 0.8; }
 
 .mode-pill--balanced.mode-pill--active {
-  background: #5c9e6e;
-  border-color: #5c9e6e;
-  color: #fff;
+  background: #2e7d4f;
 }
 
-.mode-pill--brave.mode-pill--active {
-  background: #e07040;
-  border-color: #e07040;
-  color: #fff;
+.mode-pill--active {
+  font-weight: 700;
+  filter: saturate(1.3) brightness(1.05) !important;
+  opacity: 1 !important;
+  transform: scale(1.12);
+}
+
+.mode-pill:hover:not(:disabled):not(.mode-pill--active) {
+  opacity: 1;
+  filter: saturate(0.8) brightness(1.05);
 }
 
 .mode-pill:disabled {
-  opacity: 0.6;
   cursor: not-allowed;
 }
 
