@@ -8,8 +8,8 @@ import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const LANG_LABELS: Record<Language, string> = { en: '🇺🇸 EN', cs: '🇨🇿 CS' };
-const OTHER_LANG: Record<Language, Language> = { en: 'cs', cs: 'en' };
+const LANGUAGES: Language[] = ['en', 'cs'];
+const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 
 function buildChatContext(response: BriefingResponse): string {
   const lines: string[] = [];
@@ -63,9 +63,17 @@ export default function App() {
             <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
             Rizma Brief
           </h1>
-          <button className="lang-btn" onClick={() => setLanguage(OTHER_LANG[language])}>
-            {LANG_LABELS[OTHER_LANG[language]]}
-          </button>
+          <div className="lang-switcher">
+            {LANGUAGES.map((l) => (
+              <button
+                key={l}
+                className={`lang-btn${language === l ? ' lang-btn--active' : ''}`}
+                onClick={() => setLanguage(l)}
+              >
+                {LANG_LABELS[l]}
+              </button>
+            ))}
+          </div>
         </div>
         <p className="app-tagline">{t.tagline}</p>
       </header>
