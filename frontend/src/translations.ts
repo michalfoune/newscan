@@ -33,7 +33,7 @@ export const translations: Record<Language, Translations> = {
   en: {
     tagline: 'Stay informed without emotional overload.',
     requestLabel: 'What would you like to know?',
-    requestPlaceholder: 'e.g. What\'s the most important news today? Include one positive story.',
+    requestPlaceholder: 'e.g. What\'s the most important news today?',
     prefsToggleShow: '+ Persistent preferences',
     prefsToggleHide: '− Hide preferences',
     prefsLabel: 'General rules for every briefing',
