@@ -57,11 +57,13 @@
   gap: 0.15rem;
 }
 
-.sidebar-empty {
-  font-size: 0.8rem;
+.sidebar-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: #aaa;
-  text-align: center;
-  padding: 1.5rem 0.5rem;
+  padding: 0.5rem 0.65rem 0.25rem;
 }
 
 .sidebar-item {

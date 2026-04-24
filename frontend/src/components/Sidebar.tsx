@@ -32,6 +32,9 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, isOpen, onCl
           </button>
         </div>
         <div className="sidebar-list">
+          {conversations.length > 0 && (
+            <p className="sidebar-section-label">Recents</p>
+          )}
           {conversations.map((c) => (
             <button
               key={c.id}
