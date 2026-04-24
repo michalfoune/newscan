@@ -24,6 +24,16 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface Conversation {
+  id: string;
+  query: string;
+  response: BriefingResponse;
+  chatMessages: ChatMessage[];
+  mode: Mode;
+  language: string;
+  timestamp: number;
+}
+
 export type Mode = 'calm' | 'balanced' | 'brave';
 
 export interface BriefingRequest {

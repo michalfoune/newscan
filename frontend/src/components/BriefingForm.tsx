@@ -11,6 +11,7 @@ interface Props {
   language: Language;
   mode: Mode;
   onModeChange: (m: Mode) => void;
+  initialRequest?: string;
 }
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
@@ -21,12 +22,12 @@ const MODE_COLORS: Record<Mode, string> = {
   brave: '#e07040',
 };
 
-export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange }: Props) {
-  const [request, setRequest] = useState('');
+export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange, initialRequest = '' }: Props) {
+  const [request, setRequest] = useState(initialRequest);
   const [preferences, setPreferences] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
-  const [submittedRequest, setSubmittedRequest] = useState('');
-  const [collapsed, setCollapsed] = useState(false);
+  const [submittedRequest, setSubmittedRequest] = useState(initialRequest);
+  const [collapsed, setCollapsed] = useState(hasResults);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [copied, setCopied] = useState(false);

@@ -22,10 +22,11 @@ interface Props {
   t: Translations;
   apiUrl: string;
   initialMode: Mode;
+  messages: ChatMessage[];
+  onMessagesChange: (messages: ChatMessage[]) => void;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function ChatInterface({ context, language, t, apiUrl, initialMode, messages, onMessagesChange }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
@@ -62,7 +63,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode }: Pro
     const text = input.trim();
     if (!text || sending) return;
     const next: ChatMessage[] = [...messages, { role: 'user', content: text }];
-    setMessages(next);
+    onMessagesChange(next);
     setInput('');
     setSending(true);
     abortRef.current = new AbortController();
@@ -74,10 +75,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode }: Pro
         signal: abortRef.current.signal,
       });
       const data = await res.json();
-      setMessages([...next, { role: 'assistant', content: data.reply }]);
+      onMessagesChange([...next, { role: 'assistant', content: data.reply }]);
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        setMessages([...next, { role: 'assistant', content: '⚠ Something went wrong. Please try again.' }]);
+        onMessagesChange([...next, { role: 'assistant', content: '⚠ Something went wrong. Please try again.' }]);
       }
     } finally {
       setSending(false);
