@@ -15,6 +15,7 @@ export interface Translations {
   toneLabels: { positive: string; neutral: string; concerning: string };
   modeLabels: { calm: string; balanced: string; brave: string };
   modeTooltip: string;
+  categories: string[];
   timeJustNow: string;
   timeHoursAgo: (h: number) => string;
   timeYesterday: (time: string) => string;
@@ -46,6 +47,7 @@ export const translations: Record<Language, Translations> = {
     toneLabels: { positive: 'Positive', neutral: 'Neutral', concerning: 'Concerning' },
     modeLabels: { calm: 'Calm', balanced: 'Balanced', brave: 'Brave' },
     modeTooltip: 'Calm: gentle framing, max 3 stories, no graphic content.\nBalanced: honest coverage without sensationalism.\nBrave: full, unfiltered news awareness.\nSwitching mode after articles are loaded only affects follow-up answers, not the briefing.',
+    categories: ['World', 'Politics', 'Economy', 'Technology', 'Science', 'Climate', 'Health', 'Sports', 'Culture', 'Business'],
     timeJustNow: 'Just now',
     timeHoursAgo: (h) => `${h}h ago`,
     timeYesterday: (time) => `Yesterday, ${time}`,
@@ -75,6 +77,7 @@ export const translations: Record<Language, Translations> = {
     toneLabels: { positive: 'Pozitivní', neutral: 'Neutrální', concerning: 'Znepokojivé' },
     modeLabels: { calm: 'Klidný', balanced: 'Vyvážený', brave: 'Odvážný' },
     modeTooltip: 'Klidný: jemné podání, max 3 příběhy, žádný grafický obsah.\nVyvážený: upřímné zprávy bez senzacechtivosti.\nOdvážný: úplné, nefiltrované zpravodajství.\nPřepnutí režimu po načtení článků ovlivní pouze následující odpovědi, nikoli samotný přehled.',
+    categories: ['Svět', 'Politika', 'Ekonomika', 'Technologie', 'Věda', 'Klima', 'Zdraví', 'Sport', 'Kultura', 'Byznys'],
     timeJustNow: 'Právě teď',
     timeHoursAgo: (h) => `před ${h}h`,
     timeYesterday: (time) => `Včera v ${time}`,

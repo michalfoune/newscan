@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 
@@ -14,35 +14,52 @@ interface Props {
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
+const MODE_COLORS: Record<Mode, string> = {
+  calm: '#4838a8',
+  balanced: '#2e7d4f',
+  brave: '#e07040',
+};
+
 export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode, onModeChange }: Props) {
   const [request, setRequest] = useState('');
   const [preferences, setPreferences] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
   const [submittedRequest, setSubmittedRequest] = useState('');
   const [collapsed, setCollapsed] = useState(false);
-  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dropdownOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!request.trim()) return;
     setSubmittedRequest(request.trim());
     setCollapsed(true);
-    onSubmit({
-      request: request.trim(),
-      system_preferences: preferences.trim() || undefined,
-      language,
-      mode,
-    });
+    onSubmit({ request: request.trim(), system_preferences: preferences.trim() || undefined, language, mode });
   };
 
-  const handleEdit = () => {
-    setCollapsed(false);
+  const handleCategory = (cat: string) => {
+    const query = language === 'cs'
+      ? `Jaké jsou nejnovější zprávy o tématu: ${cat}?`
+      : `What's the latest news on ${cat}?`;
+    setRequest(query);
   };
 
   if (collapsed && hasResults && !loading) {
     return (
-      <div className="briefing-collapsed" onClick={handleEdit} role="button" tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleEdit(); }}>
+      <div className="briefing-collapsed" onClick={() => setCollapsed(false)} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(false); }}>
         <span className="briefing-collapsed-query">{submittedRequest}</span>
       </div>
     );
@@ -50,73 +67,87 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
 
   return (
     <form onSubmit={handleSubmit} className="briefing-form">
-      <label className="field-label" htmlFor="request">
-        {t.requestLabel}
-      </label>
-      <textarea
-        id="request"
-        value={request}
-        onChange={(e) => setRequest(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (request.trim() && !loading) handleSubmit(e as unknown as React.FormEvent);
-          }
-        }}
-        placeholder={t.requestPlaceholder}
-        rows={3}
-        disabled={loading}
-      />
+      <div className="query-box">
+        <textarea
+          id="request"
+          value={request}
+          onChange={(e) => setRequest(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (request.trim() && !loading) handleSubmit(e as unknown as React.FormEvent);
+            }
+          }}
+          placeholder={t.requestPlaceholder}
+          rows={3}
+          disabled={loading}
+        />
 
-      <div className="mode-row">
-        <div className="mode-pills">
-          {MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`mode-pill mode-pill--${m}${mode === m ? ' mode-pill--active' : ''}`}
-              onClick={() => onModeChange(m)}
-              disabled={loading}
-            >
-              {t.modeLabels[m]}
+        <div className="query-box-footer">
+          <button type="button" className="toggle-prefs" onClick={() => setShowPreferences(!showPreferences)}>
+            {showPreferences ? t.prefsToggleHide : t.prefsToggleShow}
+          </button>
+          <div className="query-box-actions">
+            <div className="mode-dropdown-wrap" ref={dropdownRef}>
+              <button
+                type="button"
+                className="mode-dropdown-btn"
+                style={{ background: MODE_COLORS[mode], borderColor: MODE_COLORS[mode] }}
+                onClick={() => { setDropdownOpen(!dropdownOpen); setShowHint(false); }}
+                disabled={loading}
+              >
+                {t.modeLabels[mode]}
+                <span className="mode-dropdown-caret">▾</span>
+              </button>
+              {dropdownOpen && (
+                <div className={`mode-dropdown${showHint ? ' mode-dropdown--wide' : ''}`}>
+                  {MODES.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`mode-dropdown-item${mode === m ? ' mode-dropdown-item--active' : ''}`}
+                      style={{ color: MODE_COLORS[m] }}
+                      onClick={() => { onModeChange(m); setDropdownOpen(false); setShowHint(false); }}
+                    >
+                      {t.modeLabels[m]}
+                    </button>
+                  ))}
+                  <div className="mode-dropdown-footer">
+                    <button
+                      type="button"
+                      className="mode-dropdown-hint-toggle"
+                      onClick={() => setShowHint(!showHint)}
+                    >?</button>
+                    {showHint && (
+                      <div className="mode-dropdown-hint">
+                        {t.modeTooltip.split('\n').map((line, i) => {
+                          const colon = line.indexOf(':');
+                          return colon > -1
+                            ? <p key={i}><strong>{line.slice(0, colon)}</strong>{line.slice(colon)}</p>
+                            : <p key={i}>{line}</p>;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button type="submit" className="query-submit-btn" disabled={loading || !request.trim()}>
+              {loading
+                ? <span className="spinner" />
+                : (
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
             </button>
-          ))}
-          <div className="mode-tooltip-wrap">
-            <button
-              type="button"
-              className="mode-help-btn"
-              onMouseEnter={() => setTooltipVisible(true)}
-              onMouseLeave={() => setTooltipVisible(false)}
-              onFocus={() => setTooltipVisible(true)}
-              onBlur={() => setTooltipVisible(false)}
-              aria-label="Mode descriptions"
-            >?</button>
-            {tooltipVisible && (
-              <div className="mode-tooltip">
-                {t.modeTooltip.split('\n').map((line, i) => {
-                  const colon = line.indexOf(':');
-                  return colon > -1
-                    ? <p key={i}><strong>{line.slice(0, colon)}</strong>{line.slice(colon)}</p>
-                    : <p key={i}>{line}</p>;
-                })}
-              </div>
-            )}
           </div>
         </div>
-        <button
-          type="button"
-          className="toggle-prefs"
-          onClick={() => setShowPreferences(!showPreferences)}
-        >
-          {showPreferences ? t.prefsToggleHide : t.prefsToggleShow}
-        </button>
       </div>
 
       {showPreferences && (
         <>
-          <label className="field-label" htmlFor="preferences">
-            {t.prefsLabel}
-          </label>
+          <label className="field-label" htmlFor="preferences">{t.prefsLabel}</label>
           <textarea
             id="preferences"
             value={preferences}
@@ -128,13 +159,13 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
         </>
       )}
 
-      <button
-        type="submit"
-        className="submit-btn"
-        disabled={loading || !request.trim()}
-      >
-        {loading ? <span className="spinner" /> : t.submit}
-      </button>
+      <div className="category-pills">
+        {t.categories.map((cat) => (
+          <button key={cat} type="button" className="category-pill" onClick={() => handleCategory(cat)} disabled={loading}>
+            {cat}
+          </button>
+        ))}
+      </div>
     </form>
   );
 }

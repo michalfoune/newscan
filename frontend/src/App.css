@@ -123,7 +123,223 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  max-width: 960px;
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Query box (Perplexity-style input container) */
+.query-box {
+  background: #fff;
+  border: 1px solid #d8d5cf;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.query-box textarea {
+  border: none;
+  border-radius: 12px 12px 0 0;
+  resize: none;
+  padding: 1rem 1rem 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  background: transparent;
+  color: #1a1a1a;
+  box-shadow: none;
+}
+
+.query-box textarea:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.query-box-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+}
+
+.query-box-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Mode dropdown inside query box */
+.mode-dropdown-wrap {
+  position: relative;
+}
+
+.mode-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  padding: 0.28rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.mode-dropdown-btn:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.mode-dropdown-caret {
+  font-size: 0.6rem;
+  color: #aaa;
+  margin-left: 0.1rem;
+}
+
+.mode-dropdown {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  right: 0;
+  background: #fff;
+  border: 1px solid #d8d5cf;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  padding: 0.35rem;
+  width: max-content;
+  z-index: 200;
+}
+
+.mode-dropdown--wide {
+  width: 260px;
+}
+
+.mode-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+
+.mode-dropdown-item:hover {
+  background: #f5f3ef;
+}
+
+.mode-dropdown-item--active {
+  background: #f0eefa;
+}
+
+.mode-dropdown-footer {
+  border-top: 1px solid #ece9e4;
+  margin-top: 0.25rem;
+  padding: 0.35rem 0.4rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mode-dropdown-hint-toggle {
+  align-self: flex-start;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 1.5px solid #ccc;
+  background: none;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #aaa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.mode-dropdown-hint-toggle:hover {
+  border-color: #888;
+  color: #555;
+}
+
+.mode-dropdown-hint {
+  font-size: 0.73rem;
+  color: #999;
+  line-height: 1.55;
+}
+
+.mode-dropdown-hint p { margin: 0; }
+.mode-dropdown-hint p + p { margin-top: 0.2rem; }
+
+/* Arrow submit button */
+.query-submit-btn {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.query-submit-btn:hover:not(:disabled) {
+  background: #3a3a3a;
+}
+
+.query-submit-btn:disabled {
+  background: #d0cdc8;
+  cursor: not-allowed;
+}
+
+/* Category pills — single row, horizontally scrollable */
+.category-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+}
+
+.category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.category-pill {
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #d8d5cf;
+  border-radius: 999px;
+  padding: 0.22rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.category-pill:hover:not(:disabled) {
+  border-color: #4838a8;
+  color: #4838a8;
+  background: #f0eefa;
+}
+
+.category-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .field-label {
@@ -161,7 +377,7 @@ textarea::placeholder {
   color: #aaa;
 }
 
-/* Mode selector row */
+/* Mode selector row (chat section) */
 .mode-row {
   display: flex;
   align-items: center;
@@ -281,31 +497,6 @@ textarea::placeholder {
   color: #7c60c8;
 }
 
-.submit-btn {
-  align-self: flex-start;
-  padding: 0.6rem 1.5rem;
-  min-width: 7.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #7c60c8 0%, #4838a8 100%);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: filter 0.15s, opacity 0.15s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  filter: brightness(0.9);
-}
-
-.submit-btn:disabled {
-  opacity: 0.8;
-  cursor: not-allowed;
-}
 
 .spinner {
   display: inline-block;
