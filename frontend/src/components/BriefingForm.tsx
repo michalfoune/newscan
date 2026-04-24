@@ -4,6 +4,7 @@ import { Language, Translations } from '../translations';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
+  onCancel: () => void;
   loading: boolean;
   hasResults: boolean;
   t: Translations;
@@ -20,7 +21,7 @@ const MODE_COLORS: Record<Mode, string> = {
   brave: '#e07040',
 };
 
-export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode, onModeChange }: Props) {
+export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange }: Props) {
   const [request, setRequest] = useState('');
   const [preferences, setPreferences] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
@@ -28,6 +29,7 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
   const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,18 +51,34 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
     onSubmit({ request: request.trim(), system_preferences: preferences.trim() || undefined, language, mode });
   };
 
-  const handleCategory = (cat: string) => {
-    const query = language === 'cs'
-      ? `Jaké jsou nejnovější zprávy o tématu: ${cat}?`
-      : `What's the latest news on ${cat}?`;
-    setRequest(query);
+  const handleCategory = (index: number) => {
+    setRequest(t.categoryPrompts[index]);
+  };
+
+  const copyQuery = () => {
+    navigator.clipboard.writeText(submittedRequest).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
   };
 
   if (collapsed && hasResults && !loading) {
     return (
-      <div className="briefing-collapsed" onClick={() => setCollapsed(false)} role="button" tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(false); }}>
-        <span className="briefing-collapsed-query">{submittedRequest}</span>
+      <div className="briefing-collapsed-wrap">
+        <div className="briefing-collapsed" onClick={() => setCollapsed(false)} role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(false); }}>
+          <span className="briefing-collapsed-query">{submittedRequest}</span>
+        </div>
+        <div className="hover-actions">
+          <button type="button" className="hover-action-btn" data-tooltip={copied ? 'Copied!' : 'Copy'}
+            onClick={(e) => { e.stopPropagation(); copyQuery(); }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M2 9V2h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button type="button" className="hover-action-btn" data-tooltip="Edit"
+            onClick={() => setCollapsed(false)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
       </div>
     );
   }
@@ -132,14 +150,16 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
                 </div>
               )}
             </div>
-            <button type="submit" className="query-submit-btn" disabled={loading || !request.trim()}>
+            <button
+              type={loading ? 'button' : 'submit'}
+              className="query-submit-btn"
+              onClick={loading ? onCancel : undefined}
+              disabled={!loading && !request.trim()}
+            >
               {loading
-                ? <span className="spinner" />
-                : (
-                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                    <path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
+                ? <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
+                : <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              }
             </button>
           </div>
         </div>
@@ -160,8 +180,8 @@ export function BriefingForm({ onSubmit, loading, hasResults, t, language, mode,
       )}
 
       <div className="category-pills">
-        {t.categories.map((cat) => (
-          <button key={cat} type="button" className="category-pill" onClick={() => handleCategory(cat)} disabled={loading}>
+        {t.categories.map((cat, i) => (
+          <button key={cat} type="button" className="category-pill" onClick={() => handleCategory(i)} disabled={loading}>
             {cat}
           </button>
         ))}

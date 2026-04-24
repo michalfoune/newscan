@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
@@ -30,10 +30,12 @@ export default function App() {
   const [response, setResponse] = useState<BriefingResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const t = translations[language];
 
   const handleSubmit = async (req: BriefingRequest) => {
+    abortRef.current = new AbortController();
     setLoading(true);
     setError(null);
     setResponse(null);
@@ -42,6 +44,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...req, language }),
+        signal: abortRef.current.signal,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -49,10 +52,17 @@ export default function App() {
       }
       setResponse(await res.json());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
+  };
+
+  const handleCancel = () => {
+    abortRef.current?.abort();
   };
 
   return (
@@ -78,7 +88,7 @@ export default function App() {
         <p className="app-tagline">{t.tagline}</p>
       </header>
       <main className="app-main">
-        <BriefingForm onSubmit={handleSubmit} loading={loading} hasResults={!!response && response.items.length > 0} t={t} language={language} mode={mode} onModeChange={setMode} />
+        <BriefingForm onSubmit={handleSubmit} onCancel={handleCancel} loading={loading} hasResults={!!response && response.items.length > 0} t={t} language={language} mode={mode} onModeChange={setMode} />
         {error && <div className="error-banner">{error}</div>}
         {response && response.items.length === 0 && (
           <p className="no-results">{t.noResults}</p>
