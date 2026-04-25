@@ -103,10 +103,11 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
         />
 
         <div className="query-box-footer">
-          <button type="button" className="toggle-prefs" onClick={() => setShowPreferences(!showPreferences)}>
-            {showPreferences ? t.prefsToggleHide : t.prefsToggleShow}
-          </button>
+          <div />
           <div className="query-box-actions">
+            <button type="button" className="toggle-prefs-icon" title={showPreferences ? t.prefsToggleHide : t.prefsToggleShow} onClick={() => setShowPreferences(!showPreferences)}>
+              {showPreferences ? '−' : '+'}
+            </button>
             <div className="mode-dropdown-wrap" ref={dropdownRef}>
               <button
                 type="button"
