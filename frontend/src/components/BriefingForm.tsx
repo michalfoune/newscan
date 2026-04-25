@@ -31,7 +31,14 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!loading) { setElapsed(0); return; }
+    const id = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [loading]);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -152,17 +159,16 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
                 </div>
               )}
             </div>
-            <button
-              type={loading ? 'button' : 'submit'}
-              className="query-submit-btn"
-              onClick={loading ? onCancel : undefined}
-              disabled={!loading && !request.trim()}
-            >
-              {loading
-                ? <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
-                : <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              }
-            </button>
+            {loading ? (
+              <button type="button" className="query-submit-btn query-submit-btn--timing" onClick={onCancel}>
+                <span className="elapsed-time">{elapsed}</span>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="1.5"/></svg>
+              </button>
+            ) : (
+              <button type="submit" className="query-submit-btn" disabled={!request.trim()}>
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
