@@ -105,7 +105,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
             }
           }}
           placeholder={t.requestPlaceholder}
-          rows={3}
+          rows={2}
           disabled={loading}
         />
 

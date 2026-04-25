@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Conversation } from '../types';
 
 interface Props {
@@ -5,6 +6,7 @@ interface Props {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onClearAll: () => void;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -18,7 +20,20 @@ function timeLabel(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, isOpen, onClose }: Props) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, isOpen, onClose }: Props) {
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  useEffect(() => {
+    if (!confirmClear) return;
+    const id = setTimeout(() => setConfirmClear(false), 3000);
+    return () => clearTimeout(id);
+  }, [confirmClear]);
+
+  const handleClear = () => {
+    if (confirmClear) { onClearAll(); setConfirmClear(false); }
+    else setConfirmClear(true);
+  };
+
   return (
     <>
       {isOpen && <div className="sidebar-backdrop" onClick={onClose} />}
@@ -33,7 +48,15 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, isOpen, onCl
         </div>
         <div className="sidebar-list">
           {conversations.length > 0 && (
-            <p className="sidebar-section-label">Recents</p>
+            <div className="sidebar-section-row">
+              <p className="sidebar-section-label">Recents</p>
+              <button className={`sidebar-clear-btn${confirmClear ? ' sidebar-clear-btn--confirm' : ''}`} onClick={handleClear}>
+                {confirmClear
+                  ? 'Clear all?'
+                  : <svg width="10" height="12" viewBox="0 0 12 12" fill="none" preserveAspectRatio="none"><path d="M1 3h10M4 3V2h4v1M5 5v4M7 5v4M2 3l.5 7h7L10 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                }
+              </button>
+            </div>
           )}
           {conversations.map((c) => (
             <button

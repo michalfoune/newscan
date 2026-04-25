@@ -133,6 +133,7 @@ export default function App() {
         activeId={activeId}
         onSelect={handleSelectConversation}
         onNew={handleNew}
+        onClearAll={() => { setConversations([]); handleNew(); }}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
