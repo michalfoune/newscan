@@ -42,6 +42,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationSeconds, setGenerationSeconds] = useState<number | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,6 +60,8 @@ export default function App() {
     setError(null);
     setResponse(null);
     setChatMessages([]);
+    setGenerationSeconds(null);
+    const startTime = Date.now();
     try {
       const res = await fetch(`${API_URL}/api/briefing`, {
         method: 'POST',
@@ -71,6 +74,7 @@ export default function App() {
         throw new Error((data as { detail?: string }).detail ?? `Request failed (${res.status})`);
       }
       const data: BriefingResponse = await res.json();
+      setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
       setResponse(data);
       if (data.items.length > 0) {
         const conv: Conversation = {
@@ -182,7 +186,7 @@ export default function App() {
           )}
           {response && response.items.length > 0 && (
             <>
-              <BriefingFeed response={response} t={t} />
+              <BriefingFeed response={response} t={t} generationSeconds={generationSeconds} />
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}

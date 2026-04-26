@@ -109,11 +109,12 @@ function FeedItem({ item, t, onClick }: { item: BriefingItem; t: Translations; o
 interface Props {
   response: BriefingResponse;
   t: Translations;
+  generationSeconds?: number | null;
 }
 
 const INITIAL_VISIBLE = 2;
 
-export function BriefingFeed({ response, t }: Props) {
+export function BriefingFeed({ response, t, generationSeconds }: Props) {
   const [selected, setSelected] = useState<BriefingItem | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -130,7 +131,7 @@ export function BriefingFeed({ response, t }: Props) {
       <section className="briefing-feed">
         <div className="feed-header">
           <span className="feed-count">{t.stories(response.items.length)}</span>
-          <span className="feed-time">{t.generatedAt(time)}</span>
+          <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
         </div>
 
         <div className="feed-grid">

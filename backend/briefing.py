@@ -9,10 +9,12 @@ from news import fetch_articles
 # ---------------------------------------------------------------------------
 
 TOPIC_EXTRACTION_PROMPT = (
-    "Extract the main news topics from the user's request as a JSON array of short "
-    "search queries (2–5 words each). Return ONLY valid JSON with no other text. "
-    'Example: ["Russia Ukraine war", "wildlife conservation", "space exploration"]. '
-    "Maximum 4 topics."
+    "Extract the single strongest news topic from the user's request as a JSON array with one element. "
+    "Use 2–3 nouns or proper nouns only — no verbs, adjectives, or question words. "
+    "The term must be something that would literally appear in a news headline. "
+    'Example: ["Ukraine ceasefire"] or ["Fed interest rates"] or ["Gaza conflict"]. '
+    "For broad requests (e.g. 'top news today'), return [\"world news\"]. "
+    "Return ONLY valid JSON. Exactly 1 topic."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.
@@ -181,7 +183,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     topics = _extract_topics(req.request, client)
 
     # Pass 2: fetch real articles (fewer for Calm mode)
-    max_per_topic = {"calm": 3, "balanced": 5, "brave": 7}.get(req.mode, 5)
+    max_per_topic = {"calm": 2, "balanced": 3, "brave": 4}.get(req.mode, 4)
     articles = fetch_articles(topics, max_per_topic=max_per_topic)
 
     now = datetime.now(timezone.utc)
