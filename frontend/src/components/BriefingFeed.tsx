@@ -43,12 +43,6 @@ function ArticleModal({ item, t, onClose }: { item: BriefingItem; t: Translation
             <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
           </p>
         )}
-        {item.excerpt && (
-          <div className="modal-excerpt">
-            <p className="modal-excerpt-label">{t.fromTheSource}</p>
-            <p className="modal-excerpt-text">{item.excerpt}</p>
-          </div>
-        )}
         <div className="modal-footer">
           {item.source && <span className="modal-source">{item.source}</span>}
           {item.url && (

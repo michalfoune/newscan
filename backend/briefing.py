@@ -95,66 +95,6 @@ def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
     return json.loads(_strip_fences(msg.content[0].text.strip()))
 
 
-def _filter_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> list[BriefingItem]:
-    """For each item, keep only the excerpt sentences relevant to its headline.
-    Handles aggregator pages that concatenate unrelated stories into one body."""
-    indices = [i for i, item in enumerate(items) if item.excerpt]
-    if not indices:
-        return items
-
-    payload = [{"i": i, "headline": items[i].headline, "text": items[i].excerpt} for i in indices]
-    msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=4096,
-        system=(
-            "You receive a JSON array of objects with 'i', 'headline', and 'text' fields. "
-            "The 'text' may contain content from multiple unrelated news stories concatenated together. "
-            "For each object, extract and return only the sentences from 'text' that are directly relevant to 'headline'. "
-            "If no relevant sentences exist, return an empty string for 'text'. "
-            "Do not add, invent, or paraphrase — only use text that is present in the input. "
-            "Return a JSON array with the same 'i' field and the filtered 'text'. No markdown."
-        ),
-        messages=[{"role": "user", "content": json.dumps(payload)}],
-    )
-    try:
-        filtered = json.loads(_strip_fences(msg.content[0].text.strip()))
-        by_index = {obj["i"]: obj["text"] for obj in filtered}
-        result = list(items)
-        for i, text in by_index.items():
-            result[i] = result[i].model_copy(update={"excerpt": text or None})
-        return result
-    except (json.JSONDecodeError, KeyError):
-        # Malformed response — return items with excerpts cleared to avoid showing garbage
-        return [item.model_copy(update={"excerpt": None}) for item in items]
-
-
-def _translate_excerpts(items: list[BriefingItem], client: anthropic.Anthropic) -> list[BriefingItem]:
-    """Translate all item excerpts to Czech in one batched Haiku call."""
-    indices = [i for i, item in enumerate(items) if item.excerpt]
-    if not indices:
-        return items
-
-    payload = [{"i": i, "text": items[i].excerpt} for i in indices]
-    msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=4096,
-        system=(
-            "Translate the 'text' field of each object in the JSON array to Czech. "
-            "Return a JSON array with the same objects, with 'text' replaced by the Czech translation. "
-            "Preserve the 'i' field unchanged. Return ONLY valid JSON, no markdown."
-        ),
-        messages=[{"role": "user", "content": json.dumps(payload)}],
-    )
-    try:
-        translated = json.loads(_strip_fences(msg.content[0].text.strip()))
-        by_index = {obj["i"]: obj["text"] for obj in translated}
-        result = list(items)
-        for i, text in by_index.items():
-            result[i] = result[i].model_copy(update={"excerpt": text})
-        return result
-    except (json.JSONDecodeError, KeyError):
-        # Malformed response — return items with untranslated excerpts rather than crashing
-        return items
 
 
 def _build_article_context(articles: list[dict]) -> str:
@@ -183,7 +123,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     topics = _extract_topics(req.request, client)
 
     # Pass 2: fetch real articles (fewer for Calm mode)
-    max_per_topic = {"calm": 2, "balanced": 3, "brave": 4}.get(req.mode, 4)
+    max_per_topic = {"calm": 2, "balanced": 2, "brave": 3}.get(req.mode, 4)
     articles = fetch_articles(topics, max_per_topic=max_per_topic)
 
     now = datetime.now(timezone.utc)
@@ -234,7 +174,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
 
     # Bundle (datetime, url, source) per article, most recent first, deduplicated by url
     seen: set[str] = set()
-    article_meta: list[tuple[str, str, str, str]] = []
+    article_meta: list[tuple[str, str, str]] = []
     for a in sorted(articles, key=lambda a: a["datetime"], reverse=True):
         url = a.get("url", "")
         if url and url not in seen:
@@ -243,7 +183,6 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
                 a["datetime"] or now.isoformat(),
                 url,
                 a.get("source", ""),
-                a.get("body", ""),
             ))
 
     items = []
@@ -251,19 +190,13 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
         # Drop placeholder items Claude generates for topics with no articles
         if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
             continue
-        published_at, url, source, excerpt = article_meta[i % len(article_meta)] if article_meta else (now.isoformat(), "", "", "")
+        published_at, url, source = article_meta[i % len(article_meta)] if article_meta else (now.isoformat(), "", "")
         items.append(BriefingItem(
             **raw_item,
             published_at=published_at,
             url=url or None,
             source=source or None,
-            excerpt=excerpt or None,
         ))
-
-    items = _filter_excerpts(items, client)
-
-    if req.language == "cs":
-        items = _translate_excerpts(items, client)
 
     overall_summary = data.get("overall_summary")
     if overall_summary and req.language == "cs":
