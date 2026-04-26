@@ -1,8 +1,12 @@
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import Optional
 from eventregistry import EventRegistry, QueryArticlesIter
+
+_cache: dict = {}
+_CACHE_TTL = 300  # 5 minutes
 
 
 def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
@@ -26,7 +30,7 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
                 continue
             seen.add(url)
             raw_body = article.get("body") or ""
-            body = raw_body[:1500].replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
+            body = raw_body[:800].replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
             results.append({
                 "topic": keywords or "news",
                 "title": article.get("title", "").strip().replace("\\", " ").replace('"', "'"),
@@ -40,27 +44,27 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
         return results
 
     def fetch_topic(topic: str) -> list[dict]:
+        cache_key = f"{topic}:{max_per_topic}"
+        cached = _cache.get(cache_key)
+        if cached and time.time() - cached[0] < _CACHE_TTL:
+            return cached[1]
+
         er = EventRegistry(apiKey=api_key, allowUseOfArchive=False)
 
-        # Try full topic first
         results = _run_query(er, topic)
-        if results:
-            return results
+        if not results:
+            short = " ".join(topic.split()[:2])
+            if short != topic:
+                results = _run_query(er, short)
+        if not results:
+            results = _run_query(er, None)
 
-        # Fallback 1: first two words only
-        short = " ".join(topic.split()[:2])
-        if short != topic:
-            results = _run_query(er, short)
-            if results:
-                return results
-
-        # Fallback 2: no keyword filter — just latest news
-        return _run_query(er, None)
+        _cache[cache_key] = (time.time(), results)
+        return results
 
     with ThreadPoolExecutor(max_workers=len(topics)) as executor:
         topic_results = list(executor.map(fetch_topic, topics))
 
-    # Flatten and deduplicate across topics
     seen_urls: set[str] = set()
     articles = []
     for topic_articles in topic_results:

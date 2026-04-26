@@ -462,18 +462,6 @@ body {
 .mode-dropdown-hint p { margin: 0; }
 .mode-dropdown-hint p + p { margin-top: 0.2rem; }
 
-.query-submit-btn--timing {
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.elapsed-time {
-  font-size: 0.6rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.01em;
-}
-
 /* Arrow submit button */
 .query-submit-btn {
   width: 2.5rem;

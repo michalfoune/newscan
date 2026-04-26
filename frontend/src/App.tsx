@@ -20,7 +20,6 @@ function buildChatContext(response: BriefingResponse): string {
     lines.push(`Headline: ${item.headline}`);
     lines.push(`Summary: ${item.summary}`);
     if (item.why_it_matters) lines.push(`Why it matters: ${item.why_it_matters}`);
-    if (item.excerpt) lines.push(`Source excerpt: ${item.excerpt}`);
     lines.push('');
   }
   return lines.join('\n');
@@ -62,8 +61,13 @@ export default function App() {
     setChatMessages([]);
     setGenerationSeconds(null);
     const startTime = Date.now();
+
+    // Use a ref-like local object so the closure always sees the latest items
+    let streamingItems: BriefingResponse['items'] = [];
+    let convId: string | null = null;
+
     try {
-      const res = await fetch(`${API_URL}/api/briefing`, {
+      const res = await fetch(`${API_URL}/api/briefing/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...req, language }),
@@ -73,21 +77,81 @@ export default function App() {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { detail?: string }).detail ?? `Request failed (${res.status})`);
       }
-      const data: BriefingResponse = await res.json();
-      setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
-      setResponse(data);
-      if (data.items.length > 0) {
-        const conv: Conversation = {
-          id: Date.now().toString(),
-          query: req.request,
-          response: data,
-          chatMessages: [],
-          mode: req.mode,
-          language: req.language,
-          timestamp: Date.now(),
-        };
-        setConversations(prev => [conv, ...prev].slice(0, 50));
-        setActiveId(conv.id);
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let eventType = '';
+      let dataLine = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            dataLine = line.slice(6);
+          } else if (line === '') {
+            if (eventType === 'item' && dataLine) {
+              const item = JSON.parse(dataLine) as BriefingResponse['items'][0];
+              streamingItems = [...streamingItems, item];
+              const snap = streamingItems;
+              setResponse(prev => ({
+                items: snap,
+                overall_summary: prev?.overall_summary,
+                generated_at: prev?.generated_at ?? new Date().toISOString(),
+                missing_topics: prev?.missing_topics ?? [],
+              }));
+              // Create/update history entry on first item
+              if (snap.length === 1) {
+                convId = Date.now().toString();
+                const conv: Conversation = {
+                  id: convId,
+                  query: req.request,
+                  response: { items: snap, overall_summary: undefined, generated_at: new Date().toISOString(), missing_topics: [] },
+                  chatMessages: [],
+                  mode: req.mode,
+                  language: req.language,
+                  timestamp: Date.now(),
+                };
+                setConversations(prev => [conv, ...prev].slice(0, 50));
+                setActiveId(convId);
+              } else if (convId) {
+                const cid = convId;
+                setConversations(prev => prev.map(c => c.id === cid ? { ...c, response: { ...c.response, items: snap } } : c));
+              }
+            } else if (eventType === 'done' && dataLine) {
+              const doneData = JSON.parse(dataLine) as { overall_summary?: string; generated_at: string; missing_topics: string[] };
+              setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
+              setResponse(prev => prev ? {
+                ...prev,
+                overall_summary: doneData.overall_summary,
+                generated_at: doneData.generated_at,
+                missing_topics: doneData.missing_topics,
+              } : null);
+              if (convId) {
+                const cid = convId;
+                setConversations(prev => prev.map(c => c.id === cid ? {
+                  ...c,
+                  response: {
+                    ...c.response,
+                    overall_summary: doneData.overall_summary,
+                    generated_at: doneData.generated_at,
+                    missing_topics: doneData.missing_topics,
+                  },
+                } : c));
+              }
+            }
+            eventType = '';
+            dataLine = '';
+          }
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {

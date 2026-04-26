@@ -97,6 +97,62 @@ def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
 
 
 
+def _parse_streaming_items(accumulated: str, emitted_count: int) -> tuple[list[dict], int]:
+    """Extract newly completed item objects from partial streaming JSON, skipping already-emitted ones."""
+    marker_pos = accumulated.find('"items"')
+    if marker_pos == -1:
+        return [], emitted_count
+
+    bracket = accumulated.find('[', marker_pos)
+    if bracket == -1:
+        return [], emitted_count
+
+    new_items = []
+    pos = bracket + 1
+    found_count = 0
+
+    while True:
+        while pos < len(accumulated) and accumulated[pos] in ' \n\r\t,':
+            pos += 1
+        if pos >= len(accumulated) or accumulated[pos] != '{':
+            break
+
+        depth = 0
+        in_string = False
+        escape_next = False
+
+        for i in range(pos, len(accumulated)):
+            ch = accumulated[i]
+            if escape_next:
+                escape_next = False
+                continue
+            if in_string:
+                if ch == '\\':
+                    escape_next = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    found_count += 1
+                    if found_count > emitted_count:
+                        try:
+                            new_items.append(json.loads(accumulated[pos:i + 1]))
+                        except json.JSONDecodeError:
+                            pass
+                    pos = i + 1
+                    break
+        else:
+            break
+
+    return new_items, emitted_count + len(new_items)
+
+
 def _build_article_context(articles: list[dict]) -> str:
     if not articles:
         return "No articles were retrieved."
@@ -113,29 +169,11 @@ def _build_article_context(articles: list[dict]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Main entry points
 # ---------------------------------------------------------------------------
 
-def generate_briefing(req: BriefingRequest) -> BriefingResponse:
-    client = anthropic.Anthropic()
-
-    # Pass 1: extract topics
-    topics = _extract_topics(req.request, client)
-
-    # Pass 2: fetch real articles (fewer for Calm mode)
-    max_per_topic = {"calm": 2, "balanced": 2, "brave": 3}.get(req.mode, 4)
-    articles = fetch_articles(topics, max_per_topic=max_per_topic)
-
-    now = datetime.now(timezone.utc)
-
-    if not articles:
-        return BriefingResponse(items=[], generated_at=now.isoformat(), missing_topics=topics)
-
-    # Identify which topics returned no articles
-    topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in topics if t not in topics_with_articles]
-
-    # Pass 3: generate briefing grounded in real articles
+def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: list[str]) -> tuple[str, str]:
+    """Return (system_prompt, user_message) for the Sonnet briefing call."""
     lang_instruction = {
         "en": "Respond entirely in English (US).",
         "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
@@ -159,10 +197,118 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
         f"Article excerpts to draw from:\n{article_context}"
         f"{missing_note}"
     )
+    return system, user_message
+
+
+def _build_article_meta(articles: list[dict], now_iso: str) -> list[tuple[str, str, str]]:
+    seen: set[str] = set()
+    meta: list[tuple[str, str, str]] = []
+    for a in sorted(articles, key=lambda a: a["datetime"], reverse=True):
+        url = a.get("url", "")
+        if url and url not in seen:
+            seen.add(url)
+            meta.append((a["datetime"] or now_iso, url, a.get("source", "")))
+    return meta
+
+
+def generate_briefing_stream(req: BriefingRequest):
+    """Generator that yields SSE-formatted strings as items arrive from Sonnet."""
+    client = anthropic.Anthropic()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    topics = _extract_topics(req.request, client)
+    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+
+    max_per_topic = {"calm": 2, "balanced": 2, "brave": 3}.get(req.mode, 4)
+    articles = fetch_articles(topics, max_per_topic=max_per_topic)
+
+    if not articles:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics})}\n\n"
+        return
+
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in topics if t not in topics_with_articles]
+
+    system, user_message = _build_prompt(req, articles, missing_topics)
+    article_meta = _build_article_meta(articles, now_iso)
+
+    accumulated = ""
+    emitted_count = 0
+    item_index = 0
+
+    with client.messages.stream(
+        model="claude-sonnet-4-6",
+        max_tokens=1300,
+        system=system,
+        messages=[{"role": "user", "content": user_message}],
+    ) as stream:
+        for chunk in stream.text_stream:
+            accumulated += chunk
+            new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
+            for raw_item in new_items:
+                current_index = item_index
+                item_index += 1
+                if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
+                    continue
+                published_at, url, source = (
+                    article_meta[current_index % len(article_meta)]
+                    if article_meta else (now_iso, "", "")
+                )
+                try:
+                    item = BriefingItem(
+                        **raw_item,
+                        published_at=published_at,
+                        url=url or None,
+                        source=source or None,
+                    )
+                    yield f"event: item\ndata: {item.model_dump_json()}\n\n"
+                except Exception:
+                    pass
+
+    overall_summary = None
+    try:
+        data = json.loads(_strip_fences(accumulated.strip()))
+        overall_summary = data.get("overall_summary")
+    except json.JSONDecodeError:
+        pass
+
+    if overall_summary and req.language == "cs":
+        try:
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                system="Translate the following text to Czech. Return only the translated text, nothing else.",
+                messages=[{"role": "user", "content": overall_summary}],
+            )
+            overall_summary = msg.content[0].text.strip()
+        except Exception:
+            pass
+
+    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics})}\n\n"
+
+
+def generate_briefing(req: BriefingRequest) -> BriefingResponse:
+    client = anthropic.Anthropic()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    topics = _extract_topics(req.request, client)
+
+    max_per_topic = {"calm": 2, "balanced": 2, "brave": 3}.get(req.mode, 4)
+    articles = fetch_articles(topics, max_per_topic=max_per_topic)
+
+    if not articles:
+        return BriefingResponse(items=[], generated_at=now_iso, missing_topics=topics)
+
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in topics if t not in topics_with_articles]
+
+    system, user_message = _build_prompt(req, articles, missing_topics)
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2048,
+        max_tokens=1300,
         system=system,
         messages=[{"role": "user", "content": user_message}],
     )
@@ -172,25 +318,13 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse briefing response as JSON: {e}") from e
 
-    # Bundle (datetime, url, source) per article, most recent first, deduplicated by url
-    seen: set[str] = set()
-    article_meta: list[tuple[str, str, str]] = []
-    for a in sorted(articles, key=lambda a: a["datetime"], reverse=True):
-        url = a.get("url", "")
-        if url and url not in seen:
-            seen.add(url)
-            article_meta.append((
-                a["datetime"] or now.isoformat(),
-                url,
-                a.get("source", ""),
-            ))
+    article_meta = _build_article_meta(articles, now_iso)
 
     items = []
     for i, raw_item in enumerate(data["items"]):
-        # Drop placeholder items Claude generates for topics with no articles
         if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
             continue
-        published_at, url, source = article_meta[i % len(article_meta)] if article_meta else (now.isoformat(), "", "")
+        published_at, url, source = article_meta[i % len(article_meta)] if article_meta else (now_iso, "", "")
         items.append(BriefingItem(
             **raw_item,
             published_at=published_at,
@@ -211,6 +345,6 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     return BriefingResponse(
         items=items,
         overall_summary=overall_summary,
-        generated_at=now.isoformat(),
+        generated_at=now_iso,
         missing_topics=missing_topics,
     )
