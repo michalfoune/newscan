@@ -3,7 +3,7 @@ import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
-import { BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode } from './types';
+import { BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ThreadItem } from './types';
 import { Language, translations } from './translations';
 import './App.css';
 
@@ -65,7 +65,7 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, onClose 
   );
 }
 
-function buildChatContext(response: BriefingResponse): string {
+function buildChatContext(response: BriefingResponse, thread: ThreadItem[]): string {
   const lines: string[] = [];
   if (response.overall_summary) lines.push(`Overview: ${response.overall_summary}\n`);
   for (const item of response.items) {
@@ -74,13 +74,34 @@ function buildChatContext(response: BriefingResponse): string {
     if (item.why_it_matters) lines.push(`Why it matters: ${item.why_it_matters}`);
     lines.push('');
   }
+  for (const ti of thread) {
+    if (ti.type === 'briefing') {
+      lines.push(`\n=== Additional briefing: ${ti.query} ===`);
+      if (ti.response.overall_summary) lines.push(`Overview: ${ti.response.overall_summary}\n`);
+      for (const item of ti.response.items) {
+        lines.push(`Headline: ${item.headline}`);
+        lines.push(`Summary: ${item.summary}`);
+        if (item.why_it_matters) lines.push(`Why it matters: ${item.why_it_matters}`);
+        lines.push('');
+      }
+    }
+  }
   return lines.join('\n');
 }
 
 function loadConversations(): Conversation[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+    const raw = JSON.parse(stored);
+    return raw.map((c: any) => ({
+      ...c,
+      thread: c.thread ?? (c.chatMessages ?? []).map((m: ChatMessage) => ({
+        type: 'message' as const,
+        role: m.role,
+        content: m.content,
+      })),
+    }));
   } catch {
     return [];
   }
@@ -90,7 +111,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('en');
   const [mode, setMode] = useState<Mode>('balanced');
   const [response, setResponse] = useState<BriefingResponse | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [thread, setThread] = useState<ThreadItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -124,11 +145,10 @@ export default function App() {
     setLoading(true);
     setError(null);
     setResponse(null);
-    setChatMessages([]);
+    setThread([]);
     setGenerationSeconds(null);
     const startTime = Date.now();
 
-    // Use a ref-like local object so the closure always sees the latest items
     let streamingItems: BriefingResponse['items'] = [];
     let convId: string | null = null;
 
@@ -174,14 +194,13 @@ export default function App() {
                 generated_at: prev?.generated_at ?? new Date().toISOString(),
                 missing_topics: prev?.missing_topics ?? [],
               }));
-              // Create/update history entry on first item
               if (snap.length === 1) {
                 convId = Date.now().toString();
                 const conv: Conversation = {
                   id: convId,
                   query: req.request,
                   response: { items: snap, overall_summary: undefined, generated_at: new Date().toISOString(), missing_topics: [] },
-                  chatMessages: [],
+                  thread: [],
                   mode: req.mode,
                   language: req.language,
                   timestamp: Date.now(),
@@ -233,11 +252,11 @@ export default function App() {
     abortRef.current?.abort();
   };
 
-  const handleChatMessagesChange = (msgs: ChatMessage[]) => {
-    setChatMessages(msgs);
+  const handleThreadChange = (newThread: ThreadItem[]) => {
+    setThread(newThread);
     if (activeId) {
       setConversations(prev =>
-        prev.map(c => c.id === activeId ? { ...c, chatMessages: msgs } : c)
+        prev.map(c => c.id === activeId ? { ...c, thread: newThread } : c)
       );
     }
   };
@@ -247,7 +266,7 @@ export default function App() {
     if (!conv) return;
     setActiveId(id);
     setResponse(conv.response);
-    setChatMessages(conv.chatMessages);
+    setThread(conv.thread ?? []);
     setMode(conv.mode);
     setLanguage(conv.language as Language);
     setError(null);
@@ -256,9 +275,11 @@ export default function App() {
   const handleNew = () => {
     setActiveId(null);
     setResponse(null);
-    setChatMessages([]);
+    setThread([]);
     setError(null);
   };
+
+  const chatContext = response ? buildChatContext(response, thread) : '';
 
   return (
     <div className="app">
@@ -333,13 +354,14 @@ export default function App() {
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}
-                context={buildChatContext(response)}
+                context={chatContext}
                 language={language}
                 t={t}
                 apiUrl={API_URL}
                 initialMode={mode}
-                messages={chatMessages}
-                onMessagesChange={handleChatMessagesChange}
+                thread={thread}
+                onThreadChange={handleThreadChange}
+                systemPreferences={systemPreferences}
               />
             </>
           )}

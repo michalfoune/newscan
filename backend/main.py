@@ -4,9 +4,9 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse
+from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse, ChatStreamRequest
 from briefing import generate_briefing, generate_briefing_stream
-from chat import answer_followup
+from chat import answer_followup, answer_followup_stream
 
 app = FastAPI(title="Rizma Brief API")
 
@@ -48,5 +48,17 @@ def create_briefing_stream(req: BriefingRequest):
 def chat(req: ChatRequest):
     try:
         return answer_followup(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat/stream")
+def chat_stream(req: ChatStreamRequest):
+    try:
+        return StreamingResponse(
+            answer_followup_stream(req),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

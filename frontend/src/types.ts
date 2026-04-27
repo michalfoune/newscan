@@ -23,11 +23,15 @@ export interface ChatMessage {
   content: string;
 }
 
+export type ThreadItem =
+  | { type: 'message'; role: 'user' | 'assistant'; content: string }
+  | { type: 'briefing'; response: BriefingResponse; mode: Mode; query: string };
+
 export interface Conversation {
   id: string;
   query: string;
   response: BriefingResponse;
-  chatMessages: ChatMessage[];
+  thread: ThreadItem[];
   mode: Mode;
   language: string;
   timestamp: number;

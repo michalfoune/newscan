@@ -48,3 +48,12 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+
+
+class ChatStreamRequest(BaseModel):
+    messages: List[ChatMessage]
+    new_message: str
+    context: str
+    language: str = "en"
+    mode: str = "balanced"
+    system_preferences: Optional[str] = None

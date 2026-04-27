@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChatMessage, Mode } from '../types';
+import { BriefingItem, BriefingResponse, Mode, ThreadItem } from '../types';
 import { Translations } from '../translations';
+import { BriefingFeed } from './BriefingFeed';
 
 function renderMarkdown(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
@@ -22,15 +23,58 @@ interface Props {
   t: Translations;
   apiUrl: string;
   initialMode: Mode;
-  messages: ChatMessage[];
-  onMessagesChange: (messages: ChatMessage[]) => void;
+  thread: ThreadItem[];
+  onThreadChange: (thread: ThreadItem[]) => void;
+  systemPreferences?: string;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode, messages, onMessagesChange }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  // Streaming pending state
+  const [pendingText, setPendingText] = useState('');
+  const [pendingBriefItems, setPendingBriefItems] = useState<BriefingItem[]>([]);
+  const [pendingBriefActive, setPendingBriefActive] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const stickyScroll = useRef(true); // false when user has scrolled up
+
+  // Track whether user has scrolled away from the bottom
+  useEffect(() => {
+    const onScroll = () => {
+      const distFromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+      stickyScroll.current = distFromBottom < 150;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // When user sends, re-enable sticky scroll and jump to bottom
+  useEffect(() => {
+    if (sending) {
+      stickyScroll.current = true;
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [sending]);
+
+  // While streaming, follow only if sticky
+  useEffect(() => {
+    if (stickyScroll.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'instant' } as ScrollIntoViewOptions);
+    }
+  }, [pendingText, pendingBriefItems.length]);
+
+  // When a finalized item lands, scroll if sticky
+  useEffect(() => {
+    if (stickyScroll.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [thread.length]);
 
   const copyMsg = (text: string, idx: number) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -38,63 +82,226 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, messa
       setTimeout(() => setCopiedIdx(null), 1500);
     });
   };
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
-    const next: ChatMessage[] = [...messages, { role: 'user', content: text }];
-    onMessagesChange(next);
+
+    const userItem: ThreadItem = { type: 'message', role: 'user', content: text };
+    const threadWithUser = [...thread, userItem];
+    onThreadChange(threadWithUser);
+
     setInput('');
     setSending(true);
+    setStatusMsg(null);
+    setPendingText('');
+    setPendingBriefItems([]);
+    setPendingBriefActive(false);
+
     abortRef.current = new AbortController();
+
+    const messages = thread
+      .filter((item): item is Extract<ThreadItem, { type: 'message' }> => item.type === 'message')
+      .map(item => ({ role: item.role, content: item.content }));
+
     try {
-      const res = await fetch(`${apiUrl}/api/chat`, {
+      const res = await fetch(`${apiUrl}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next, context, language, mode: chatMode }),
+        body: JSON.stringify({
+          messages,
+          new_message: text,
+          context,
+          language,
+          mode: chatMode,
+          system_preferences: systemPreferences?.trim() || undefined,
+        }),
         signal: abortRef.current.signal,
       });
-      const data = await res.json();
-      onMessagesChange([...next, { role: 'assistant', content: data.reply }]);
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let eventType = '';
+      let dataLine = '';
+      let accText = '';
+      let accBriefItems: BriefingItem[] = [];
+      let briefQuery = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            dataLine = line.slice(6);
+          } else if (line === '') {
+            if (eventType === 'status' && dataLine) {
+              const data = JSON.parse(dataLine);
+              if (data.stage === 'fetching') setStatusMsg('Retrieving news…');
+              else setStatusMsg(null);
+
+            } else if (eventType === 'reply_chunk' && dataLine) {
+              const data = JSON.parse(dataLine);
+              accText += data.chunk;
+              setPendingText(accText);
+              setStatusMsg(null);
+
+            } else if (eventType === 'reply_done') {
+              const assistantItem: ThreadItem = { type: 'message', role: 'assistant', content: accText };
+              onThreadChange([...threadWithUser, assistantItem]);
+              setPendingText('');
+              accText = '';
+
+            } else if (eventType === 'brief_item' && dataLine) {
+              const item = JSON.parse(dataLine) as BriefingItem;
+              accBriefItems = [...accBriefItems, item];
+              setPendingBriefItems(accBriefItems);
+              setPendingBriefActive(true);
+              setStatusMsg(null);
+
+            } else if (eventType === 'brief_done' && dataLine) {
+              const data = JSON.parse(dataLine);
+              briefQuery = data.query || text;
+              if (accBriefItems.length === 0) {
+                // No articles found — show as a text message
+                const noResultsItem: ThreadItem = {
+                  type: 'message',
+                  role: 'assistant',
+                  content: `No recent articles found for "${briefQuery}". Try rephrasing or asking a follow-up question.`,
+                };
+                onThreadChange([...threadWithUser, noResultsItem]);
+              } else {
+                const briefingResponse: BriefingResponse = {
+                  items: accBriefItems,
+                  overall_summary: data.overall_summary,
+                  generated_at: data.generated_at,
+                  missing_topics: data.missing_topics ?? [],
+                };
+                const briefItem: ThreadItem = {
+                  type: 'briefing',
+                  mode: chatMode,
+                  query: briefQuery,
+                  response: briefingResponse,
+                };
+                onThreadChange([...threadWithUser, briefItem]);
+              }
+              setPendingBriefItems([]);
+              setPendingBriefActive(false);
+              accBriefItems = [];
+
+            } else if (eventType === 'done') {
+              setSending(false);
+              setStatusMsg(null);
+            }
+
+            eventType = '';
+            dataLine = '';
+          }
+        }
+      }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        onMessagesChange([...next, { role: 'assistant', content: '⚠ Something went wrong. Please try again.' }]);
+        const errorItem: ThreadItem = {
+          type: 'message',
+          role: 'assistant',
+          content: '⚠ Something went wrong. Please try again.',
+        };
+        onThreadChange([...threadWithUser, errorItem]);
       }
     } finally {
       setSending(false);
+      setStatusMsg(null);
+      setPendingText('');
+      setPendingBriefItems([]);
+      setPendingBriefActive(false);
       abortRef.current = null;
     }
   };
 
   const cancelSend = () => abortRef.current?.abort();
 
+  const showTypingDots = sending && pendingText === '' && !pendingBriefActive;
+
   return (
     <div className="chat">
-      {messages.length > 0 && (
-        <div className="chat-messages">
-          {messages.map((m, i) => (
-            <div key={i} className={`chat-msg-wrap chat-msg-wrap--${m.role}`}>
-              <div className={`chat-msg chat-msg--${m.role}`}>
-                {renderMarkdown(m.content)}
+      {(thread.length > 0 || sending) && (
+        <div className="chat-thread">
+          {thread.map((item, i) => {
+            if (item.type === 'message') {
+              return (
+                <div key={i} className={`chat-msg-wrap chat-msg-wrap--${item.role}`}>
+                  <div className={`chat-msg chat-msg--${item.role}`}>
+                    {renderMarkdown(item.content)}
+                  </div>
+                  <div className="hover-actions">
+                    <button
+                      type="button"
+                      className="hover-action-btn"
+                      data-tooltip={copiedIdx === i ? 'Copied!' : 'Copy'}
+                      onClick={() => copyMsg(item.content, i)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M2 9V2h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              );
+            } else {
+              // type === 'briefing'
+              return (
+                <div key={i} className="thread-brief-wrap">
+                  <BriefingFeed response={item.response} t={t} mode={item.mode} />
+                </div>
+              );
+            }
+          })}
+
+          {/* Pending streaming content */}
+          {showTypingDots && (
+            <div className="chat-msg-wrap chat-msg-wrap--assistant">
+              <div className="chat-msg chat-msg--assistant chat-msg--typing">
+                <span className="dot" /><span className="dot" /><span className="dot" />
               </div>
-              <div className="hover-actions">
-                <button type="button" className="hover-action-btn" data-tooltip={copiedIdx === i ? 'Copied!' : 'Copy'} onClick={() => copyMsg(m.content, i)}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M2 9V2h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-              </div>
-            </div>
-          ))}
-          {sending && (
-            <div className="chat-msg chat-msg--assistant chat-msg--typing">
-              <span className="dot" /><span className="dot" /><span className="dot" />
+              {statusMsg && <span className="chat-status-msg">{statusMsg}</span>}
             </div>
           )}
+
+          {pendingText !== '' && (
+            <div className="chat-msg-wrap chat-msg-wrap--assistant">
+              <div className="chat-msg chat-msg--assistant">
+                {renderMarkdown(pendingText)}
+              </div>
+            </div>
+          )}
+
+          {pendingBriefActive && (
+            <div className="thread-brief-wrap">
+              {statusMsg && pendingBriefItems.length === 0 && (
+                <span className="chat-status-msg">{statusMsg}</span>
+              )}
+              {pendingBriefItems.length > 0 && (
+                <BriefingFeed
+                  response={{
+                    items: pendingBriefItems,
+                    generated_at: new Date().toISOString(),
+                    missing_topics: [],
+                  }}
+                  t={t}
+                  mode={chatMode}
+                />
+              )}
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
       )}

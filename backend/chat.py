@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Optional, Tuple
 import anthropic
-from models import ChatRequest, ChatResponse
+from models import ChatRequest, ChatResponse, ChatStreamRequest
 from news import fetch_articles
 
 logger = logging.getLogger(__name__)
@@ -42,9 +42,25 @@ Examples:
 - User says "can you look up more articles" or "find more info" → answerable: false, search_query: infer from the conversation topic
 - User asks about something explicitly stated in the context → answerable: true"""
 
+CLASSIFIER_PROMPT_V2 = """You are a routing assistant for a news briefing app. Given briefing context, conversation history, and a new user message, decide what action to take:
+
+- "answer": The question can be answered directly from the existing briefing context
+- "fetch": The user wants more detail or supplemental articles on topics already covered — respond with text after fetching more articles
+- "brief": The user is clearly requesting a news briefing on a NEW TOPIC not covered in the existing context
+
+Return ONLY valid JSON:
+{"action": "answer" | "fetch" | "brief", "query": "short search term or brief topic if fetch or brief, else null"}
+
+Examples:
+- User asks "What caused this?" about events in the context → {"action": "answer", "query": null}
+- User asks "Find more about the ceasefire" and context mentions it → {"action": "fetch", "query": "ceasefire news latest"}
+- User asks "What's happening with Tesla?" when context is geopolitical → {"action": "brief", "query": "Tesla news today"}
+- User says "Now show me sports news" → {"action": "brief", "query": "sports news today"}
+- User asks "Tell me more about sanctions" and context has sanction info → {"action": "fetch", "query": "sanctions news latest"}
+- User asks "What else is happening in Ukraine?" → {"action": "fetch", "query": "Ukraine war news latest"}"""
+
 
 def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
-    """Use Haiku to decide if question is answerable from context."""
     client = anthropic.Anthropic()
     prompt = (
         f"Briefing context:\n{context}\n\n"
@@ -59,7 +75,6 @@ def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = msg.content[0].text.strip()
-        # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
@@ -74,8 +89,34 @@ def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
         return True, None
 
 
+def _classify_v2(context: str, question: str) -> Tuple[str, Optional[str]]:
+    client = anthropic.Anthropic()
+    prompt = f"Briefing context:\n{context}\n\nConversation:\n{question}"
+    try:
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=128,
+            system=CLASSIFIER_PROMPT_V2,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = msg.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        data = json.loads(raw)
+        action = data.get("action", "answer")
+        if action not in ("answer", "fetch", "brief"):
+            action = "answer"
+        query = data.get("query")
+        logger.info(f"[classify_v2] action={action} query={query!r}")
+        return action, query
+    except Exception as e:
+        logger.warning(f"[classify_v2] failed ({e}), defaulting to answer")
+        return "answer", None
+
+
 def _build_supplemental_context(search_query: str) -> str:
-    """Fetch fresh articles and format them as supplemental context."""
     try:
         articles = fetch_articles([search_query], max_per_topic=4)
         logger.info(f"[supplemental] fetched {len(articles)} articles for query={search_query!r}")
@@ -99,28 +140,22 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
         "cs": "Respond entirely in Czech (Česky).",
     }
 
-    # Last user message is the question being asked
     last_user_msg = next(
         (m.content for m in reversed(req.messages) if m.role == "user"), ""
     )
-
-    # Include recent conversation for context when classifying (last 3 exchanges)
     recent_history = "\n".join(
         f"{m.role.upper()}: {m.content}" for m in req.messages[-6:]
     )
 
-    # Step 1: classify
-    answerable, search_query = _classify(req.context, f"Recent conversation:\n{recent_history}\n\nLatest question: {last_user_msg}")
+    answerable, search_query = _classify(
+        req.context,
+        f"Recent conversation:\n{recent_history}\n\nLatest question: {last_user_msg}",
+    )
 
-    # Step 2: optionally fetch supplemental articles
     supplemental = ""
     if not answerable and search_query:
-        logger.info(f"[chat] not answerable from context, fetching: {search_query!r}")
         supplemental = _build_supplemental_context(search_query)
-    else:
-        logger.info(f"[chat] answerable from context, skipping fetch")
 
-    # Step 3: build system prompt with context (+ supplemental if any)
     context_block = req.context
     if supplemental:
         context_block += f"\n\n---\n{supplemental}"
@@ -140,5 +175,90 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
         system=system,
         messages=[{"role": m.role, "content": m.content} for m in req.messages],
     )
-
     return ChatResponse(reply=message.content[0].text.strip())
+
+
+def answer_followup_stream(req: ChatStreamRequest):
+    """SSE generator for streaming chat responses.
+
+    Events emitted:
+      status      {"stage": "thinking"|"fetching"}
+      reply_chunk {"chunk": "..."}          — text answer (streamed)
+      reply_done  {}                         — text answer complete
+      brief_item  {BriefingItem}             — new-topic briefing item
+      brief_done  {"overall_summary":..., "generated_at":..., "missing_topics":..., "query":"..."}
+      done        {}                         — entire response complete
+    """
+    from briefing import generate_briefing_stream
+    from models import BriefingRequest
+
+    client = anthropic.Anthropic()
+    lang_instruction = {
+        "en": "Respond entirely in English (US).",
+        "cs": "Respond entirely in Czech (Česky).",
+    }
+
+    yield f"event: status\ndata: {json.dumps({'stage': 'thinking'})}\n\n"
+
+    recent_msgs = [{"role": m.role, "content": m.content} for m in req.messages[-6:]]
+    recent_history = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in recent_msgs)
+    classify_input = f"Recent conversation:\n{recent_history}\n\nLatest message: {req.new_message}"
+
+    action, query = _classify_v2(req.context, classify_input)
+
+    if action == "brief":
+        yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+
+        brief_req = BriefingRequest(
+            request=query or req.new_message,
+            language=req.language,
+            mode=req.mode,
+            system_preferences=req.system_preferences,
+        )
+
+        for event in generate_briefing_stream(brief_req):
+            if event.startswith("event: status\n"):
+                continue
+            elif event.startswith("event: item\n"):
+                yield event.replace("event: item\n", "event: brief_item\n", 1)
+            elif event.startswith("event: done\n"):
+                data_part = event[len("event: done\ndata: "):].rstrip("\n")
+                done_data = json.loads(data_part)
+                done_data["query"] = query or req.new_message
+                yield f"event: brief_done\ndata: {json.dumps(done_data)}\n\n"
+            else:
+                yield event
+
+    else:
+        supplemental = ""
+        if action == "fetch" and query:
+            yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+            supplemental = _build_supplemental_context(query)
+
+        context_block = req.context
+        if supplemental:
+            context_block += f"\n\n---\n{supplemental}"
+
+        mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["balanced"])
+        system = (
+            CHAT_SYSTEM
+            + f"\n\n{mode_instruction}"
+            + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
+            + f"\n\nBriefing context:\n{context_block}"
+        )
+
+        messages_for_api = [{"role": m.role, "content": m.content} for m in req.messages]
+        messages_for_api.append({"role": "user", "content": req.new_message})
+
+        with client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=system,
+            messages=messages_for_api,
+        ) as stream:
+            for chunk in stream.text_stream:
+                yield f"event: reply_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
+
+        yield f"event: reply_done\ndata: {{}}\n\n"
+
+    yield f"event: done\ndata: {{}}\n\n"
