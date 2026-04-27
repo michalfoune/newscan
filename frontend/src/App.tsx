@@ -92,6 +92,7 @@ export default function App() {
   const [response, setResponse] = useState<BriefingResponse | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [generationSeconds, setGenerationSeconds] = useState<number | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
@@ -100,6 +101,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [systemPreferences, setSystemPreferences] = useState(() => localStorage.getItem(PREFS_KEY) ?? '');
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!loading) { setElapsed(0); return; }
+    const id = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [loading]);
 
   const handlePrefsChange = (v: string) => {
     setSystemPreferences(v);
@@ -313,6 +320,9 @@ export default function App() {
             onModeChange={setMode}
             initialRequest={activeId ? (conversations.find(c => c.id === activeId)?.query ?? '') : ''}
           />
+          {loading && (!response || response.items.length === 0) && (
+            <p className="generating-status">Generating… {elapsed}s</p>
+          )}
           {error && <div className="error-banner">{error}</div>}
           {response && response.items.length === 0 && (
             <p className="no-results">{t.noResults}</p>

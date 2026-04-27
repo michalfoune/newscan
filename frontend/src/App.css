@@ -377,8 +377,8 @@ body {
 }
 
 .mode-dropdown-caret {
-  font-size: 0.6rem;
-  color: #aaa;
+  font-size: 0.72rem;
+  color: #fff;
   margin-left: 0.1rem;
 }
 
@@ -823,6 +823,15 @@ textarea::placeholder {
 }
 
 /* Error */
+.generating-status {
+  font-size: 0.82rem;
+  color: #aaa;
+  margin: 0 auto;
+  max-width: 680px;
+  width: 100%;
+  letter-spacing: 0.01em;
+}
+
 .no-results {
   font-size: 0.9rem;
   color: #888;
