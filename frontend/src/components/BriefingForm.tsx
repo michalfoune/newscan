@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 
@@ -26,21 +26,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
   const [request, setRequest] = useState(initialRequest);
   const [submittedRequest, setSubmittedRequest] = useState(initialRequest);
   const [collapsed, setCollapsed] = useState(hasResults);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showHint, setShowHint] = useState(false);
   const [copied, setCopied] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [dropdownOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,49 +89,19 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
         <div className="query-box-footer">
           <div />
           <div className="query-box-actions">
-            <div className="mode-dropdown-wrap" ref={dropdownRef}>
-              <button
-                type="button"
-                className="mode-dropdown-btn"
-                style={{ background: MODE_COLORS[mode], borderColor: MODE_COLORS[mode] }}
-                onClick={() => { setDropdownOpen(!dropdownOpen); setShowHint(false); }}
-                disabled={loading}
-              >
-                {t.modeLabels[mode]}
-                <span className="mode-dropdown-caret">▾</span>
-              </button>
-              {dropdownOpen && (
-                <div className={`mode-dropdown${showHint ? ' mode-dropdown--wide' : ''}`}>
-                  {MODES.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`mode-dropdown-item${mode === m ? ' mode-dropdown-item--active' : ''}`}
-                      style={{ color: MODE_COLORS[m] }}
-                      onClick={() => { onModeChange(m); setDropdownOpen(false); setShowHint(false); }}
-                    >
-                      {t.modeLabels[m]}
-                    </button>
-                  ))}
-                  <div className="mode-dropdown-footer">
-                    <button
-                      type="button"
-                      className="mode-dropdown-hint-toggle"
-                      onClick={() => setShowHint(!showHint)}
-                    >?</button>
-                    {showHint && (
-                      <div className="mode-dropdown-hint">
-                        {t.modeTooltip.split('\n').map((line, i) => {
-                          const colon = line.indexOf(':');
-                          return colon > -1
-                            ? <p key={i}><strong>{line.slice(0, colon)}</strong>{line.slice(colon)}</p>
-                            : <p key={i}>{line}</p>;
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+            <div className="mode-buttons">
+              {MODES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`mode-btn${mode === m ? ' mode-btn--active' : ''}`}
+                  style={{ background: MODE_COLORS[m] }}
+                  onClick={() => onModeChange(m)}
+                  disabled={loading}
+                >
+                  {t.modeLabels[m]}
+                </button>
+              ))}
             </div>
             {loading ? (
               <button type="button" className="query-submit-btn query-submit-btn--stop" onClick={onCancel}>
