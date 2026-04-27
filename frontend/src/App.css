@@ -1084,6 +1084,24 @@ textarea::placeholder {
   color: #888;
 }
 
+.feed-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.feed-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .feed-count {
   font-weight: 600;
 }

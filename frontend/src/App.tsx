@@ -329,7 +329,7 @@ export default function App() {
           )}
           {response && response.items.length > 0 && (
             <>
-              <BriefingFeed response={response} t={t} generationSeconds={generationSeconds} />
+              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} />
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}

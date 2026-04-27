@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
-import { BriefingItem, BriefingResponse, Tone } from '../types';
+import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
+
+const MODE_COLORS: Record<Mode, string> = {
+  calm: '#4838a8',
+  balanced: '#2e7d4f',
+  brave: '#e07040',
+};
 
 const TONE_CLASS: Record<Tone, string> = {
   positive: 'tone-positive',
@@ -103,12 +109,13 @@ function FeedItem({ item, t, onClick }: { item: BriefingItem; t: Translations; o
 interface Props {
   response: BriefingResponse;
   t: Translations;
+  mode: Mode;
   generationSeconds?: number | null;
 }
 
 const INITIAL_VISIBLE = 2;
 
-export function BriefingFeed({ response, t, generationSeconds }: Props) {
+export function BriefingFeed({ response, t, mode, generationSeconds }: Props) {
   const [selected, setSelected] = useState<BriefingItem | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -124,7 +131,12 @@ export function BriefingFeed({ response, t, generationSeconds }: Props) {
     <>
       <section className="briefing-feed">
         <div className="feed-header">
-          <span className="feed-count">{t.stories(response.items.length)}</span>
+          <div className="feed-header-left">
+            <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
+              {t.modeLabels[mode]}
+            </span>
+            <span className="feed-count">{t.stories(response.items.length)}</span>
+          </div>
           <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
         </div>
 
