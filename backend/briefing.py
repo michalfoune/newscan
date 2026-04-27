@@ -71,7 +71,8 @@ Content mode: BALANCED
 - Cover news honestly but avoid sensationalism and graphic detail
 - Use measured, factual language; maintain a natural mix of tones
 - Apply any user preferences where set
-- Order items by relevance to the user's request first, then by news significance; tone does not affect order
+- Order items by tone first: positive stories first, neutral next, concerning last
+- Exception: if one story is clearly far more significant or directly relevant than the others, place it first regardless of tone — but only when the importance gap is substantial, not as a general rule
 """,
     "brave": f"""
 Content mode: BRAVE
