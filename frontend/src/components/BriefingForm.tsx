@@ -24,8 +24,6 @@ const MODE_COLORS: Record<Mode, string> = {
 
 export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange, initialRequest = '' }: Props) {
   const [request, setRequest] = useState(initialRequest);
-  const [preferences, setPreferences] = useState('');
-  const [showPreferences, setShowPreferences] = useState(false);
   const [submittedRequest, setSubmittedRequest] = useState(initialRequest);
   const [collapsed, setCollapsed] = useState(hasResults);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -49,7 +47,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
     if (!request.trim()) return;
     setSubmittedRequest(request.trim());
     setCollapsed(true);
-    onSubmit({ request: request.trim(), system_preferences: preferences.trim() || undefined, language, mode });
+    onSubmit({ request: request.trim(), language, mode });
   };
 
   const handleCategory = (index: number) => {
@@ -105,9 +103,6 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
         <div className="query-box-footer">
           <div />
           <div className="query-box-actions">
-            <button type="button" className="toggle-prefs-icon" title={showPreferences ? t.prefsToggleHide : t.prefsToggleShow} onClick={() => setShowPreferences(!showPreferences)}>
-              {showPreferences ? '−' : '+'}
-            </button>
             <div className="mode-dropdown-wrap" ref={dropdownRef}>
               <button
                 type="button"
@@ -164,20 +159,6 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
           </div>
         </div>
       </div>
-
-      {showPreferences && (
-        <>
-          <label className="field-label" htmlFor="preferences">{t.prefsLabel}</label>
-          <textarea
-            id="preferences"
-            value={preferences}
-            onChange={(e) => setPreferences(e.target.value)}
-            placeholder={t.prefsPlaceholder}
-            rows={3}
-            disabled={loading}
-          />
-        </>
-      )}
 
       <div className="category-pills">
         {t.categories.map((cat, i) => (

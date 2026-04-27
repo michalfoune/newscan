@@ -9,9 +9,61 @@ import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const STORAGE_KEY = 'rizma-conversations';
+const PREFS_KEY = 'rizma-preferences';
 
 const LANGUAGES: Language[] = ['en', 'cs'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
+
+function SettingsPopover({ value, onChange, language, onLanguageChange, onClose }: {
+  value: string;
+  onChange: (v: string) => void;
+  language: Language;
+  onLanguageChange: (l: Language) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div className="settings-popover" ref={ref}>
+      <p className="settings-popover-title">Preferences</p>
+      <div className="settings-section">
+        <p className="settings-section-label">Language</p>
+        <div className="settings-lang-switcher">
+          {LANGUAGES.map(l => (
+            <button
+              key={l}
+              type="button"
+              className={`settings-lang-btn${language === l ? ' settings-lang-btn--active' : ''}`}
+              onClick={() => onLanguageChange(l)}
+            >
+              {LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="settings-section">
+        <p className="settings-section-label">Content preferences</p>
+        <p className="settings-section-hint">Shapes every briefing you generate.</p>
+        <textarea
+          className="settings-prefs-textarea"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="e.g. Keep summaries short. Avoid political news."
+          rows={4}
+          autoFocus
+        />
+      </div>
+    </div>
+  );
+}
 
 function buildChatContext(response: BriefingResponse): string {
   const lines: string[] = [];
@@ -45,7 +97,14 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [systemPreferences, setSystemPreferences] = useState(() => localStorage.getItem(PREFS_KEY) ?? '');
   const abortRef = useRef<AbortController | null>(null);
+
+  const handlePrefsChange = (v: string) => {
+    setSystemPreferences(v);
+    localStorage.setItem(PREFS_KEY, v);
+  };
 
   const t = translations[language];
 
@@ -70,7 +129,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...req, language }),
+        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined }),
         signal: abortRef.current.signal,
       });
       if (!res.ok) {
@@ -217,16 +276,26 @@ export default function App() {
               <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
               Rizma Brief
             </h1>
-            <div className="lang-switcher">
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l}
-                  className={`lang-btn${language === l ? ' lang-btn--active' : ''}`}
-                  onClick={() => setLanguage(l)}
-                >
-                  {LANG_LABELS[l]}
-                </button>
-              ))}
+            <div className="settings-wrap">
+              <button
+                className={`settings-btn${settingsOpen ? ' settings-btn--active' : ''}${systemPreferences.trim() ? ' settings-btn--set' : ''}`}
+                onClick={() => setSettingsOpen(o => !o)}
+                aria-label="Settings"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+              </button>
+              {settingsOpen && (
+                <SettingsPopover
+                  value={systemPreferences}
+                  onChange={handlePrefsChange}
+                  language={language}
+                  onLanguageChange={setLanguage}
+                  onClose={() => setSettingsOpen(false)}
+                />
+              )}
             </div>
           </div>
           <p className="app-tagline">{t.tagline}</p>

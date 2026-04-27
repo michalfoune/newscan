@@ -666,26 +666,145 @@ textarea::placeholder {
   margin-top: 0.3rem;
 }
 
-.toggle-prefs-icon {
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 999px;
-  border: 1.5px solid #d8d5cf;
-  background: none;
-  font-size: 1rem;
-  line-height: 1;
-  color: #888;
-  cursor: pointer;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-wrap {
+  position: relative;
+}
+
+.settings-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  border: none;
+  background: none;
+  color: #aaa;
+  cursor: pointer;
   padding: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.settings-btn:hover {
+  color: #555;
+  background: #f0ede8;
+}
+
+.settings-btn--active {
+  color: #555;
+  background: #f0ede8;
+}
+
+.settings-btn--set {
+  color: #6b5ce7;
+}
+
+.settings-btn--set:hover {
+  color: #4838a8;
+}
+
+.settings-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: #fff;
+  border: 1px solid #e5e3de;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  padding: 1rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.settings-popover-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-section + .settings-section {
+  margin-top: 0.9rem;
+}
+
+.settings-section-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  text-align: left;
+}
+
+.settings-section-hint {
+  font-size: 0.74rem;
+  color: #999;
+  margin: 0;
+  text-align: left;
+}
+
+.settings-prefs-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid #e5e3de;
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  resize: vertical;
+  background: #fafaf8;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-top: 0.2rem;
+}
+
+.settings-prefs-textarea:focus {
+  border-color: #aaa;
+}
+
+.settings-lang-switcher {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+.settings-lang-btn {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1.5px solid #e5e3de;
+  background: none;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #888;
+  cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
 
-.toggle-prefs-icon:hover {
-  border-color: #888;
+.settings-lang-btn:hover {
+  border-color: #aaa;
   color: #333;
+}
+
+.settings-lang-btn--active {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+  font-weight: 600;
 }
 
 
