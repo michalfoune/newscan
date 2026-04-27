@@ -25,7 +25,7 @@ export interface ChatMessage {
 
 export type ThreadItem =
   | { type: 'message'; role: 'user' | 'assistant'; content: string }
-  | { type: 'briefing'; response: BriefingResponse; mode: Mode; query: string };
+  | { type: 'briefing'; response: BriefingResponse; mode: Mode; query: string; generationSeconds?: number };
 
 export interface Conversation {
   id: string;

@@ -39,9 +39,21 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [pendingBriefItems, setPendingBriefItems] = useState<BriefingItem[]>([]);
   const [pendingBriefActive, setPendingBriefActive] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [fetchElapsed, setFetchElapsed] = useState(0);
+
+  useEffect(() => {
+    if (statusMsg === 'Retrieving news…') {
+      setFetchElapsed(0);
+      const id = setInterval(() => setFetchElapsed(s => s + 1), 1000);
+      return () => clearInterval(id);
+    } else {
+      setFetchElapsed(0);
+    }
+  }, [statusMsg]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const briefStartRef = useRef<number>(0);
   const stickyScroll = useRef(true); // false when user has scrolled up
 
   // Track whether user has scrolled away from the bottom
@@ -144,8 +156,12 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           } else if (line === '') {
             if (eventType === 'status' && dataLine) {
               const data = JSON.parse(dataLine);
-              if (data.stage === 'fetching') setStatusMsg('Retrieving news…');
-              else setStatusMsg(null);
+              if (data.stage === 'fetching') {
+                setStatusMsg('Retrieving news…');
+                briefStartRef.current = Date.now();
+              } else {
+                setStatusMsg(null);
+              }
 
             } else if (eventType === 'reply_chunk' && dataLine) {
               const data = JSON.parse(dataLine);
@@ -169,8 +185,8 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
             } else if (eventType === 'brief_done' && dataLine) {
               const data = JSON.parse(dataLine);
               briefQuery = data.query || text;
+              const briefSecs = briefStartRef.current ? Math.round((Date.now() - briefStartRef.current) / 1000) : undefined;
               if (accBriefItems.length === 0) {
-                // No articles found — show as a text message
                 const noResultsItem: ThreadItem = {
                   type: 'message',
                   role: 'assistant',
@@ -189,6 +205,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                   mode: chatMode,
                   query: briefQuery,
                   response: briefingResponse,
+                  generationSeconds: briefSecs,
                 };
                 onThreadChange([...threadWithUser, briefItem]);
               }
@@ -259,7 +276,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               // type === 'briefing'
               return (
                 <div key={i} className="thread-brief-wrap">
-                  <BriefingFeed response={item.response} t={t} mode={item.mode} />
+                  <BriefingFeed response={item.response} t={t} mode={item.mode} generationSeconds={item.generationSeconds ?? null} />
                 </div>
               );
             }
@@ -271,7 +288,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               <div className="chat-msg chat-msg--assistant chat-msg--typing">
                 <span className="dot" /><span className="dot" /><span className="dot" />
               </div>
-              {statusMsg && <span className="chat-status-msg">{statusMsg}</span>}
+              {statusMsg && <span className="chat-status-msg">{statusMsg}{fetchElapsed > 0 ? ` ${fetchElapsed}s` : ''}</span>}
             </div>
           )}
 
@@ -286,7 +303,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           {pendingBriefActive && (
             <div className="thread-brief-wrap">
               {statusMsg && pendingBriefItems.length === 0 && (
-                <span className="chat-status-msg">{statusMsg}</span>
+                <span className="chat-status-msg">{statusMsg}{fetchElapsed > 0 ? ` ${fetchElapsed}s` : ''}</span>
               )}
               {pendingBriefItems.length > 0 && (
                 <BriefingFeed
