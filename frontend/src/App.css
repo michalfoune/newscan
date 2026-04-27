@@ -984,7 +984,6 @@ textarea::placeholder {
 .chat-status-msg {
   font-size: 0.8rem;
   color: #aaa;
-  font-style: italic;
   padding: 0.15rem 0;
 }
 
