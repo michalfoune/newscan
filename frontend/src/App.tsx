@@ -321,7 +321,7 @@ export default function App() {
             initialRequest={activeId ? (conversations.find(c => c.id === activeId)?.query ?? '') : ''}
           />
           {loading && (!response || response.items.length === 0) && (
-            <p className="generating-status">Generating… {elapsed}s</p>
+            <p className="generating-status">Generating brief… {elapsed}s</p>
           )}
           {error && <div className="error-banner">{error}</div>}
           {response && response.items.length === 0 && (
