@@ -51,7 +51,7 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, onClose 
       </div>
       <div className="settings-section">
         <p className="settings-section-label">Content preferences</p>
-        <p className="settings-section-hint">Shapes every briefing you generate.</p>
+        <p className="settings-section-hint">Applies to every briefing you generate.</p>
         <textarea
           className="settings-prefs-textarea"
           value={value}
@@ -195,12 +195,12 @@ export default function App() {
             } else if (eventType === 'done' && dataLine) {
               const doneData = JSON.parse(dataLine) as { overall_summary?: string; generated_at: string; missing_topics: string[] };
               setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
-              setResponse(prev => prev ? {
-                ...prev,
+              setResponse(prev => ({
+                items: prev?.items ?? [],
                 overall_summary: doneData.overall_summary,
                 generated_at: doneData.generated_at,
                 missing_topics: doneData.missing_topics,
-              } : null);
+              }));
               if (convId) {
                 const cid = convId;
                 setConversations(prev => prev.map(c => c.id === cid ? {
