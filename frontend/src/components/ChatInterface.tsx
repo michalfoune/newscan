@@ -42,7 +42,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [fetchElapsed, setFetchElapsed] = useState(0);
 
   useEffect(() => {
-    if (statusMsg === 'Retrieving news…') {
+    if (statusMsg === 'Retrieving news…' || statusMsg === 'Generating brief…') {
       setFetchElapsed(0);
       const id = setInterval(() => setFetchElapsed(s => s + 1), 1000);
       return () => clearInterval(id);
@@ -156,8 +156,11 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           } else if (line === '') {
             if (eventType === 'status' && dataLine) {
               const data = JSON.parse(dataLine);
-              if (data.stage === 'fetching') {
+              if (data.stage === 'fetching_articles') {
                 setStatusMsg('Retrieving news…');
+                briefStartRef.current = Date.now();
+              } else if (data.stage === 'fetching_brief') {
+                setStatusMsg('Generating brief…');
                 briefStartRef.current = Date.now();
               } else {
                 setStatusMsg(null);

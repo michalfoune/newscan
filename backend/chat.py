@@ -207,7 +207,7 @@ def answer_followup_stream(req: ChatStreamRequest):
     action, query = _classify_v2(req.context, classify_input)
 
     if action == "brief":
-        yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+        yield f"event: status\ndata: {json.dumps({'stage': 'fetching_brief'})}\n\n"
 
         brief_req = BriefingRequest(
             request=query or req.new_message,
@@ -232,7 +232,7 @@ def answer_followup_stream(req: ChatStreamRequest):
     else:
         supplemental = ""
         if action == "fetch" and query:
-            yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+            yield f"event: status\ndata: {json.dumps({'stage': 'fetching_articles'})}\n\n"
             supplemental = _build_supplemental_context(query)
 
         context_block = req.context
