@@ -63,6 +63,7 @@ Content mode: CALM
 - Include at least 1 positive or neutral story even if the user's query is heavy
 - Use gentle, grounded language — avoid alarming words like "devastating", "catastrophic", "crisis"
 - Overall tone should feel like a calm, trusted friend summarizing the day, not a news anchor
+- Order items from least to most concerning: positive stories first, neutral next, concerning last
 """,
     "balanced": f"""
 Content mode: BALANCED
@@ -70,6 +71,7 @@ Content mode: BALANCED
 - Cover news honestly but avoid sensationalism and graphic detail
 - Use measured, factual language; maintain a natural mix of tones
 - Apply any user preferences where set
+- Order items by relevance to the user's request first, then by news significance; tone does not affect order
 """,
     "brave": f"""
 Content mode: BRAVE
@@ -77,6 +79,7 @@ Content mode: BRAVE
 - Standard journalistic directness — report facts and outcomes as found in the source material
 - Do not soften language or filter for emotional impact
 - Suitable for users who want complete, unfiltered news awareness
+- Order items by news significance and direct relevance to the user's request, most important first
 """,
 }
 
