@@ -30,8 +30,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, messa
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showHint, setShowHint] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const copyMsg = (text: string, idx: number) => {
@@ -40,24 +38,12 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, messa
       setTimeout(() => setCopiedIdx(null), 1500);
     });
   };
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [dropdownOpen]);
 
   const send = async () => {
     const text = input.trim();
@@ -125,49 +111,19 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, messa
         <div className="query-box-footer">
           <div />
           <div className="query-box-actions">
-            <div className="mode-dropdown-wrap" ref={dropdownRef}>
-              <button
-                type="button"
-                className="mode-dropdown-btn"
-                style={{ background: MODE_COLORS[chatMode], borderColor: MODE_COLORS[chatMode] }}
-                onClick={() => { setDropdownOpen(!dropdownOpen); setShowHint(false); }}
-                disabled={sending}
-              >
-                {t.modeLabels[chatMode]}
-                <span className="mode-dropdown-caret">▾</span>
-              </button>
-              {dropdownOpen && (
-                <div className={`mode-dropdown${showHint ? ' mode-dropdown--wide' : ''}`}>
-                  {MODES.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`mode-dropdown-item${chatMode === m ? ' mode-dropdown-item--active' : ''}`}
-                      style={{ color: MODE_COLORS[m] }}
-                      onClick={() => { setChatMode(m); setDropdownOpen(false); setShowHint(false); }}
-                    >
-                      {t.modeLabels[m]}
-                    </button>
-                  ))}
-                  <div className="mode-dropdown-footer">
-                    <button
-                      type="button"
-                      className="mode-dropdown-hint-toggle"
-                      onClick={() => setShowHint(!showHint)}
-                    >?</button>
-                    {showHint && (
-                      <div className="mode-dropdown-hint">
-                        {t.modeTooltip.split('\n').map((line, i) => {
-                          const colon = line.indexOf(':');
-                          return colon > -1
-                            ? <p key={i}><strong>{line.slice(0, colon)}</strong>{line.slice(colon)}</p>
-                            : <p key={i}>{line}</p>;
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+            <div className="mode-buttons">
+              {MODES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`mode-btn${chatMode === m ? ' mode-btn--active' : ''}`}
+                  style={{ background: MODE_COLORS[m] }}
+                  onClick={() => setChatMode(m)}
+                  disabled={sending}
+                >
+                  {t.modeLabels[m]}
+                </button>
+              ))}
             </div>
             <button
               className="query-submit-btn"
