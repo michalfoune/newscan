@@ -7,18 +7,14 @@ from news import fetch_articles
 
 logger = logging.getLogger(__name__)
 
-CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant with the ability to fetch fresh news articles.
-
-The user has just received a news briefing. Your job is to answer follow-up questions about the news.
-
-IMPORTANT: You have a backend news-fetching capability. When the user asks for more articles or information not in the briefing, fresh articles are automatically retrieved and included in the context under "Supplemental articles fetched for this question". Use those articles to answer.
+CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant. Answer the user's follow-up questions based on the provided briefing context and any supplemental articles included in the context.
 
 Guidelines:
-- Answer based on the provided briefing context and any supplemental articles supplied
-- Keep answers concise and calm — this is a news digest, not a debate
-- Never say you cannot browse the internet or look up articles — you can, via the backend fetch
-- If even after supplemental articles the answer is unclear, use your general knowledge and note it briefly
-- Use measured, factual language consistent with the briefing tone"""
+- Answer directly and concisely from the provided context
+- Do NOT mention fetching, searching, or any internal mechanics — just answer
+- Do NOT offer to look things up, fetch more articles, or suggest the user ask again — simply answer what you know from the context
+- If specific details are not in the context, say so in one sentence and move on
+- Use measured, factual language; no emojis"""
 
 CHAT_MODE_INSTRUCTIONS: dict = {
     "calm": "Tone: Use gentle, reassuring language. Avoid alarming words. Frame difficult facts with context. Keep answers brief.",
@@ -42,22 +38,30 @@ Examples:
 - User says "can you look up more articles" or "find more info" → answerable: false, search_query: infer from the conversation topic
 - User asks about something explicitly stated in the context → answerable: true"""
 
-CLASSIFIER_PROMPT_V2 = """You are a routing assistant for a news briefing app. Given briefing context, conversation history, and a new user message, decide what action to take:
+CLASSIFIER_PROMPT_V2 = """You are a routing assistant for a news briefing app. Given a summary of covered topics, conversation history, and the latest user message, decide what action to take:
 
-- "answer": The question can be answered directly from the existing briefing context
-- "fetch": The user wants more detail or supplemental articles on topics already covered — respond with text after fetching more articles
-- "brief": The user is clearly requesting a news briefing on a NEW TOPIC not covered in the existing context
+- "answer": Answer a question directly from the existing briefing (user is asking about something already covered)
+- "fetch": Fetch supplemental articles on a topic already covered and answer as text (user wants more detail on an existing topic)
+- "brief": Generate a new briefing on a different or more specific topic
 
 Return ONLY valid JSON:
-{"action": "answer" | "fetch" | "brief", "query": "short search term or brief topic if fetch or brief, else null"}
+{"action": "answer" | "fetch" | "brief", "query": "derive from USER'S MESSAGE or recent conversation — never from the briefing context"}
+
+CRITICAL RULES:
+- "Give me a brief on X", "Give me news on X", "Give me an update on X", "New brief on X" → ALWAYS "brief", query = X
+- "No, new brief" / "New brief" with no topic → "brief", query = the topic being discussed in recent conversation
+- When action is "brief", the query MUST come from the LATEST MESSAGE ONLY — do not add terms from conversation history or briefing context
+- Only use "answer" when the user's question is directly and fully answered by the existing briefing
+- Prefer "brief" over "fetch" whenever the user explicitly uses the word "brief", "update", or "news on"
 
 Examples:
-- User asks "What caused this?" about events in the context → {"action": "answer", "query": null}
-- User asks "Find more about the ceasefire" and context mentions it → {"action": "fetch", "query": "ceasefire news latest"}
-- User asks "What's happening with Tesla?" when context is geopolitical → {"action": "brief", "query": "Tesla news today"}
-- User says "Now show me sports news" → {"action": "brief", "query": "sports news today"}
-- User asks "Tell me more about sanctions" and context has sanction info → {"action": "fetch", "query": "sanctions news latest"}
-- User asks "What else is happening in Ukraine?" → {"action": "fetch", "query": "Ukraine war news latest"}"""
+- "Give me a brief on Tesla" → {"action": "brief", "query": "Tesla news"}
+- "Give me an update on Deloitte layoffs" → {"action": "brief", "query": "Deloitte layoffs"}
+- "No, new brief" after discussing Meta layoffs → {"action": "brief", "query": "Meta layoffs"}
+- "No: new brief on Deloitte and Meta cutting staff" → {"action": "brief", "query": "Deloitte Meta staff cuts"}
+- "What caused this?" about events in the briefing → {"action": "answer", "query": null}
+- "Tell me more about the ceasefire" when context covers it → {"action": "fetch", "query": "ceasefire latest"}
+- "What else is happening in Ukraine?" → {"action": "fetch", "query": "Ukraine war news"}"""
 
 
 def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
@@ -200,11 +204,17 @@ def answer_followup_stream(req: ChatStreamRequest):
 
     yield f"event: status\ndata: {json.dumps({'stage': 'thinking'})}\n\n"
 
-    recent_msgs = [{"role": m.role, "content": m.content} for m in req.messages[-6:]]
-    recent_history = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in recent_msgs)
-    classify_input = f"Recent conversation:\n{recent_history}\n\nLatest message: {req.new_message}"
+    # Truncate context to headlines only — full article text confuses the classifier
+    short_context = req.context[:700] + ("…" if len(req.context) > 700 else "")
+    # Truncate long assistant messages in history so they don't drown the user's intent
+    recent_msgs = req.messages[-6:]
+    recent_history = "\n".join(
+        f"{m.role.upper()}: {m.content[:250]}{'…' if len(m.content) > 250 else ''}"
+        for m in recent_msgs
+    )
+    classify_input = f"Latest message: {req.new_message}\n\nRecent conversation:\n{recent_history}"
 
-    action, query = _classify_v2(req.context, classify_input)
+    action, query = _classify_v2(short_context, classify_input)
 
     if action == "brief":
         yield f"event: status\ndata: {json.dumps({'stage': 'fetching_brief'})}\n\n"

@@ -1,12 +1,71 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { BriefingItem, BriefingResponse, Mode, ThreadItem } from '../types';
 import { Translations } from '../translations';
 import { BriefingFeed } from './BriefingFeed';
 
-function renderMarkdown(text: string): React.ReactNode[] {
-  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
-    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-  );
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return <>{parts.map((p, i) => i % 2 === 1 ? <strong key={i}>{p}</strong> : p)}</>;
+}
+
+type LineKind = 'empty' | 'hr' | 'bullet' | 'numbered' | 'text';
+
+function lineKind(line: string): LineKind {
+  const t = line.trim();
+  if (!t) return 'empty';
+  if (/^-{3,}$/.test(t)) return 'hr';
+  if (/^[-*]\s/.test(t)) return 'bullet';
+  if (/^\d+\.\s/.test(t)) return 'numbered';
+  return 'text';
+}
+
+function renderMarkdown(text: string): React.ReactNode {
+  const lines = text.split('\n');
+  const blocks: React.ReactNode[] = [];
+  let i = 0, k = 0;
+
+  while (i < lines.length) {
+    const kind = lineKind(lines[i]);
+
+    if (kind === 'empty') { i++; continue; }
+
+    if (kind === 'hr') {
+      blocks.push(<hr key={k++} className="chat-md-hr" />);
+      i++; continue;
+    }
+
+    if (kind === 'bullet') {
+      const items: string[] = [];
+      while (i < lines.length && (lineKind(lines[i]) === 'bullet' || lineKind(lines[i]) === 'empty')) {
+        if (lineKind(lines[i]) === 'bullet') items.push(lines[i].trim().replace(/^[-*]\s+/, ''));
+        i++;
+      }
+      blocks.push(<ul key={k++} className="chat-md-list">{items.map((it, j) => <li key={j}>{renderInline(it)}</li>)}</ul>);
+      continue;
+    }
+
+    if (kind === 'numbered') {
+      const items: string[] = [];
+      while (i < lines.length && (lineKind(lines[i]) === 'numbered' || lineKind(lines[i]) === 'empty')) {
+        if (lineKind(lines[i]) === 'numbered') items.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+        i++;
+      }
+      blocks.push(<ol key={k++} className="chat-md-list">{items.map((it, j) => <li key={j}>{renderInline(it)}</li>)}</ol>);
+      continue;
+    }
+
+    const textLines: string[] = [];
+    while (i < lines.length && lineKind(lines[i]) === 'text') { textLines.push(lines[i]); i++; }
+    blocks.push(
+      <p key={k++} className="chat-md-para">
+        {textLines.map((ln, j) => (
+          <Fragment key={j}>{j > 0 && <br />}{renderInline(ln)}</Fragment>
+        ))}
+      </p>
+    );
+  }
+
+  return <>{blocks}</>;
 }
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];

@@ -9,12 +9,13 @@ from news import fetch_articles
 # ---------------------------------------------------------------------------
 
 TOPIC_EXTRACTION_PROMPT = (
-    "Extract the single strongest news topic from the user's request as a JSON array with one element. "
-    "Use 2–3 nouns or proper nouns only — no verbs, adjectives, or question words. "
-    "The term must be something that would literally appear in a news headline. "
-    'Example: ["Ukraine ceasefire"] or ["Fed interest rates"] or ["Gaza conflict"]. '
+    "Extract the main news topics from the user's request as a JSON array with 1 or 2 elements. "
+    "Use 2–3 nouns or proper nouns only per topic — no verbs, adjectives, or question words. "
+    "Each term must be something that would literally appear in a news headline. "
+    "When the request names two distinct entities or subjects, return a separate topic for each. "
+    'Examples: ["Ukraine ceasefire"] | ["Fed interest rates"] | ["Deloitte layoffs", "Meta layoffs"] | ["Gaza conflict"]. '
     "For broad requests (e.g. 'top news today'), return [\"world news\"]. "
-    "Return ONLY valid JSON. Exactly 1 topic."
+    "Return ONLY valid JSON. Maximum 2 topics."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.

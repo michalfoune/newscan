@@ -154,6 +154,12 @@ export function BriefingFeed({ response, t, mode, generationSeconds }: Props) {
           </div>
         )}
 
+        {response.missing_topics.length > 0 && (
+          <p className="feed-missing-topics">
+            No articles found for: {response.missing_topics.join(', ')}
+          </p>
+        )}
+
         {response.overall_summary && (
           <div className="overall-summary">
             <p className="overall-summary-label">{t.overallSummaryLabel}</p>

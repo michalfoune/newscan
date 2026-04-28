@@ -15,9 +15,10 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
     if not api_key:
         raise ValueError("NEWS_API_KEY is not set in environment")
 
-    date_start = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
+    date_start_2d = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
+    date_start_7d = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
-    def _run_query(er: EventRegistry, keywords: Optional[str]) -> list[dict]:
+    def _run_query(er: EventRegistry, keywords: Optional[str], date_start: str = date_start_2d) -> list[dict]:
         kwargs = dict(lang="eng", dateStart=date_start, dataType=["news"])
         if keywords:
             kwargs["keywords"] = keywords
@@ -57,7 +58,8 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
             if short != topic:
                 results = _run_query(er, short)
         if not results:
-            results = _run_query(er, None)
+            # Widen to 7 days before giving up — never fall back to unrelated content
+            results = _run_query(er, topic, date_start=date_start_7d)
 
         _cache[cache_key] = (time.time(), results)
         return results
