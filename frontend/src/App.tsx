@@ -14,12 +14,13 @@ const PREFS_KEY = 'rizma-preferences';
 const LANGUAGES: Language[] = ['en', 'cs'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, onClose }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, onClose, storageBytes }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
   onLanguageChange: (l: Language) => void;
   onClose: () => void;
+  storageBytes: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -48,6 +49,10 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, onClose 
             </button>
           ))}
         </div>
+      </div>
+      <div className="settings-section">
+        <p className="settings-section-label">History storage</p>
+        <p className="settings-storage-size">{(storageBytes / (1024 * 1024)).toFixed(2)} MB</p>
       </div>
       <div className="settings-section">
         <p className="settings-section-label">Content preferences</p>
@@ -121,6 +126,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [systemPreferences, setSystemPreferences] = useState(() => localStorage.getItem(PREFS_KEY) ?? '');
+  const [storageBytes, setStorageBytes] = useState(() => new Blob([localStorage.getItem(STORAGE_KEY) ?? '']).size);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -137,7 +143,9 @@ export default function App() {
   const t = translations[language];
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+    const json = JSON.stringify(conversations);
+    localStorage.setItem(STORAGE_KEY, json);
+    setStorageBytes(new Blob([json]).size);
   }, [conversations]);
 
   const handleSubmit = async (req: BriefingRequest) => {
@@ -322,6 +330,7 @@ export default function App() {
                   language={language}
                   onLanguageChange={setLanguage}
                   onClose={() => setSettingsOpen(false)}
+                  storageBytes={storageBytes}
                 />
               )}
             </div>

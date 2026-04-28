@@ -680,6 +680,13 @@ textarea::placeholder {
   text-align: left;
 }
 
+.settings-storage-size {
+  font-size: 0.82rem;
+  color: #666;
+  margin: 4px 0 0;
+  text-align: left;
+}
+
 .settings-prefs-textarea {
   width: 100%;
   box-sizing: border-box;
