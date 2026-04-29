@@ -39,9 +39,12 @@ export interface Conversation {
 
 export type Mode = 'calm' | 'balanced' | 'brave';
 
+export type ModelQuality = 'fast' | 'standard' | 'best';
+
 export interface BriefingRequest {
   request: string;
   system_preferences?: string;
   language: string;
   mode: Mode;
+  model_quality?: ModelQuality;
 }

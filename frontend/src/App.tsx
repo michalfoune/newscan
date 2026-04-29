@@ -3,22 +3,27 @@ import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
-import { BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ThreadItem } from './types';
+import { BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, ThreadItem } from './types';
 import { Language, translations } from './translations';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const STORAGE_KEY = 'rizma-conversations';
 const PREFS_KEY = 'rizma-preferences';
+const QUALITY_KEY = 'rizma-model-quality';
 
 const LANGUAGES: Language[] = ['en', 'cs'];
+const QUALITIES: ModelQuality[] = ['fast', 'standard', 'best'];
+const QUALITY_LABELS: Record<ModelQuality, string> = { fast: 'Fast', standard: 'Standard', best: 'Best' };
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, onClose, storageBytes }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, onClose, storageBytes }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
   onLanguageChange: (l: Language) => void;
+  modelQuality: ModelQuality;
+  onModelQualityChange: (q: ModelQuality) => void;
   onClose: () => void;
   storageBytes: number;
 }) {
@@ -46,6 +51,21 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, onClose,
               onClick={() => onLanguageChange(l)}
             >
               {LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="settings-section">
+        <p className="settings-section-label">Quality</p>
+        <div className="settings-lang-switcher">
+          {QUALITIES.map(q => (
+            <button
+              key={q}
+              type="button"
+              className={`settings-lang-btn${modelQuality === q ? ' settings-lang-btn--active' : ''}`}
+              onClick={() => onModelQualityChange(q)}
+            >
+              {QUALITY_LABELS[q]}
             </button>
           ))}
         </div>
@@ -126,6 +146,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [systemPreferences, setSystemPreferences] = useState(() => localStorage.getItem(PREFS_KEY) ?? '');
+  const [modelQuality, setModelQuality] = useState<ModelQuality>(() => (localStorage.getItem(QUALITY_KEY) as ModelQuality) ?? 'fast');
   const [storageBytes, setStorageBytes] = useState(() => new Blob([localStorage.getItem(STORAGE_KEY) ?? '']).size);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -138,6 +159,11 @@ export default function App() {
   const handlePrefsChange = (v: string) => {
     setSystemPreferences(v);
     localStorage.setItem(PREFS_KEY, v);
+  };
+
+  const handleQualityChange = (q: ModelQuality) => {
+    setModelQuality(q);
+    localStorage.setItem(QUALITY_KEY, q);
   };
 
   const t = translations[language];
@@ -164,7 +190,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined }),
+        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality }),
         signal: abortRef.current.signal,
       });
       if (!res.ok) {
@@ -329,6 +355,8 @@ export default function App() {
                   onChange={handlePrefsChange}
                   language={language}
                   onLanguageChange={setLanguage}
+                  modelQuality={modelQuality}
+                  onModelQualityChange={handleQualityChange}
                   onClose={() => setSettingsOpen(false)}
                   storageBytes={storageBytes}
                 />
@@ -371,6 +399,7 @@ export default function App() {
                 thread={thread}
                 onThreadChange={handleThreadChange}
                 systemPreferences={systemPreferences}
+                modelQuality={modelQuality}
               />
             </>
           )}

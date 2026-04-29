@@ -85,9 +85,10 @@ interface Props {
   thread: ThreadItem[];
   onThreadChange: (thread: ThreadItem[]) => void;
   systemPreferences?: string;
+  modelQuality?: string;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences, modelQuality }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
@@ -186,6 +187,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           language,
           mode: chatMode,
           system_preferences: systemPreferences?.trim() || undefined,
+          model_quality: modelQuality,
         }),
         signal: abortRef.current.signal,
       });

@@ -49,6 +49,12 @@ Schema:
 
 IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
 
+QUALITY_MODELS: dict = {
+    "fast": "claude-haiku-4-5-20251001",
+    "standard": "claude-sonnet-4-6",
+    "best": "claude-opus-4-7",
+}
+
 MODE_ARTICLE_COUNTS: dict = {
     "calm": 2,
     "balanced": 3,
@@ -249,7 +255,7 @@ def generate_briefing_stream(req: BriefingRequest):
     item_index = 0
 
     with client.messages.stream(
-        model="claude-sonnet-4-6",
+        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
         max_tokens=1300,
         system=system,
         messages=[{"role": "user", "content": user_message}],
@@ -318,7 +324,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     system, user_message = _build_prompt(req, articles, missing_topics)
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
         max_tokens=1300,
         system=system,
         messages=[{"role": "user", "content": user_message}],

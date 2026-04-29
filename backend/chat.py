@@ -16,6 +16,12 @@ Guidelines:
 - If specific details are not in the context, say so in one sentence and move on
 - Use measured, factual language; no emojis"""
 
+QUALITY_MODELS: dict = {
+    "fast": "claude-haiku-4-5-20251001",
+    "standard": "claude-sonnet-4-6",
+    "best": "claude-opus-4-7",
+}
+
 CHAT_MODE_INSTRUCTIONS: dict = {
     "calm": "Tone: Use gentle, reassuring language. Avoid alarming words. Frame difficult facts with context. Keep answers brief.",
     "balanced": "Tone: Be honest and clear without sensationalism. Balanced, measured responses.",
@@ -224,6 +230,7 @@ def answer_followup_stream(req: ChatStreamRequest):
             language=req.language,
             mode=req.mode,
             system_preferences=req.system_preferences,
+            model_quality=req.model_quality,
         )
 
         for event in generate_briefing_stream(brief_req):
@@ -261,7 +268,7 @@ def answer_followup_stream(req: ChatStreamRequest):
         messages_for_api.append({"role": "user", "content": req.new_message})
 
         with client.messages.stream(
-            model="claude-sonnet-4-6",
+            model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
             max_tokens=1024,
             system=system,
             messages=messages_for_api,
