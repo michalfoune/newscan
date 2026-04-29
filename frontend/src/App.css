@@ -110,6 +110,9 @@
   padding: 0.5rem 0.65rem;
   cursor: pointer;
   transition: background 0.12s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .sidebar-item:hover {
