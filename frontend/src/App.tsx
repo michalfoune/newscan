@@ -323,6 +323,11 @@ export default function App() {
         onSelect={handleSelectConversation}
         onNew={handleNew}
         onClearAll={() => { setConversations([]); handleNew(); }}
+        onDelete={(id) => {
+          setConversations(prev => prev.filter(c => c.id !== id));
+          if (activeId === id) handleNew();
+        }}
+        onRename={(id, name) => setConversations(prev => prev.map(c => c.id === id ? { ...c, query: name } : c))}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Conversation } from '../types';
 
 interface Props {
@@ -7,9 +7,13 @@ interface Props {
   onSelect: (id: string) => void;
   onNew: () => void;
   onClearAll: () => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, newName: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
+
+interface MenuState { id: string; x: number; y: number }
 
 function timeLabel(ts: number): string {
   const diff = Date.now() - ts;
@@ -20,8 +24,15 @@ function timeLabel(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, isOpen, onClose }: Props) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, onDelete, onRename, isOpen, onClose }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextMenuFired = useRef(false);
+  const suppressClick = useRef(false);
 
   useEffect(() => {
     if (!confirmClear) return;
@@ -29,9 +40,57 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
     return () => clearTimeout(id);
   }, [confirmClear]);
 
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
+
+  const openMenu = (id: string, x: number, y: number) => {
+    const safeX = Math.min(x, window.innerWidth - 160);
+    const safeY = Math.min(y, window.innerHeight - 90);
+    setMenu({ id, x: safeX, y: safeY });
+  };
+
+  const startRename = (id: string) => {
+    const conv = conversations.find(c => c.id === id);
+    setRenamingId(id);
+    setRenameValue(conv?.query ?? '');
+    setMenu(null);
+  };
+
+  const commitRename = () => {
+    if (renamingId && renameValue.trim()) onRename(renamingId, renameValue.trim());
+    setRenamingId(null);
+  };
+
   const handleClear = () => {
     if (confirmClear) { onClearAll(); setConfirmClear(false); }
     else setConfirmClear(true);
+  };
+
+  const onLongPressStart = (id: string, x: number, y: number) => {
+    contextMenuFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      if (!contextMenuFired.current) {
+        suppressClick.current = true;
+        openMenu(id, x, y);
+      }
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   };
 
   return (
@@ -58,18 +117,53 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
               </button>
             </div>
           )}
-          {conversations.map((c) => (
-            <button
-              key={c.id}
-              className={`sidebar-item${activeId === c.id ? ' sidebar-item--active' : ''}`}
-              onClick={() => { onSelect(c.id); onClose(); }}
-            >
-              <span className="sidebar-item-query">{c.query}</span>
-              <span className="sidebar-item-time">{timeLabel(c.timestamp)}</span>
-            </button>
-          ))}
+          {conversations.map((c) =>
+            renamingId === c.id ? (
+              <input
+                key={c.id}
+                className="sidebar-rename-input"
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') commitRename();
+                  if (e.key === 'Escape') setRenamingId(null);
+                }}
+                autoFocus
+              />
+            ) : (
+              <button
+                key={c.id}
+                className={`sidebar-item${activeId === c.id ? ' sidebar-item--active' : ''}`}
+                onClick={() => {
+                  if (suppressClick.current) { suppressClick.current = false; return; }
+                  onSelect(c.id); onClose();
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  contextMenuFired.current = true;
+                  cancelLongPress();
+                  openMenu(c.id, e.clientX, e.clientY);
+                }}
+                onPointerDown={(e) => onLongPressStart(c.id, e.clientX, e.clientY)}
+                onPointerUp={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+              >
+                <span className="sidebar-item-query">{c.query}</span>
+                <span className="sidebar-item-time">{timeLabel(c.timestamp)}</span>
+              </button>
+            )
+          )}
         </div>
       </aside>
+
+      {menu && (
+        <div ref={menuRef} className="sidebar-context-menu" style={{ top: menu.y, left: menu.x }}>
+          <button className="sidebar-context-item" onClick={() => startRename(menu.id)}>Rename</button>
+          <button className="sidebar-context-item sidebar-context-item--delete" onClick={() => { onDelete(menu.id); setMenu(null); }}>Delete</button>
+        </div>
+      )}
     </>
   );
 }

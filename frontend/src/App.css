@@ -137,6 +137,50 @@
   color: #aaa;
 }
 
+.sidebar-rename-input {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #b8b4ae;
+  border-radius: 7px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+  color: #2c2c2c;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.sidebar-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #e0ddd8;
+  border-radius: 9px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.13);
+  min-width: 148px;
+  overflow: hidden;
+}
+
+.sidebar-context-item {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #1a1a1a;
+  transition: background 0.1s;
+}
+
+.sidebar-context-item:hover {
+  background: #f5f3ef;
+}
+
+.sidebar-context-item--delete {
+  color: #c0392b;
+}
+
 /* Hamburger button — desktop hidden, mobile shown */
 .sidebar-toggle-btn {
   display: none;
