@@ -20,7 +20,10 @@
   border-right: 1px solid #e0ddd8;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-top {
