@@ -195,7 +195,7 @@ def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: li
         "en": "Respond entirely in English (US).",
         "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
     }
-    mode_instruction = MODE_INSTRUCTIONS.get(req.mode, MODE_INSTRUCTIONS["balanced"])
+    mode_instruction = MODE_INSTRUCTIONS.get(req.mode, MODE_INSTRUCTIONS["calm"])
     system = (
         BRIEFING_SYSTEM_PROMPT
         + f"\n\n{mode_instruction.strip()}"

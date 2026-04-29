@@ -24,7 +24,7 @@ class BriefingRequest(BaseModel):
     request: str
     system_preferences: Optional[str] = None
     language: str = "en"
-    mode: str = "balanced"  # "calm" | "balanced" | "brave"
+    mode: str = "calm"  # "calm" | "balanced" | "brave"
     model_quality: str = "fast"  # "fast" | "standard" | "best"
 
 
@@ -44,7 +44,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     context: str  # briefing content as plain text
     language: str = "en"
-    mode: str = "balanced"  # "calm" | "balanced" | "brave"
+    mode: str = "calm"  # "calm" | "balanced" | "brave"
 
 
 class ChatResponse(BaseModel):
@@ -56,6 +56,6 @@ class ChatStreamRequest(BaseModel):
     new_message: str
     context: str
     language: str = "en"
-    mode: str = "balanced"
+    mode: str = "calm"
     system_preferences: Optional[str] = None
     model_quality: str = "fast"  # "fast" | "standard" | "best"

@@ -134,7 +134,7 @@ function loadConversations(): Conversation[] {
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('en');
-  const [mode, setMode] = useState<Mode>('balanced');
+  const [mode, setMode] = useState<Mode>('calm');
   const [response, setResponse] = useState<BriefingResponse | null>(null);
   const [thread, setThread] = useState<ThreadItem[]>([]);
   const [loading, setLoading] = useState(false);

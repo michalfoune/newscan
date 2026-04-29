@@ -170,7 +170,7 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
     if supplemental:
         context_block += f"\n\n---\n{supplemental}"
 
-    mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["balanced"])
+    mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["calm"])
     system = (
         CHAT_SYSTEM
         + f"\n\n{mode_instruction}"
@@ -256,7 +256,7 @@ def answer_followup_stream(req: ChatStreamRequest):
         if supplemental:
             context_block += f"\n\n---\n{supplemental}"
 
-        mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["balanced"])
+        mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["calm"])
         system = (
             CHAT_SYSTEM
             + f"\n\n{mode_instruction}"
