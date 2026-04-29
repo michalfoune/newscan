@@ -46,8 +46,8 @@ Examples:
 
 CLASSIFIER_PROMPT_V2 = """You are a routing assistant for a news briefing app. Given a summary of covered topics, conversation history, and the latest user message, decide what action to take:
 
-- "answer": Answer a question directly from the existing briefing (user is asking about something already covered)
-- "fetch": Fetch supplemental articles on a topic already covered and answer as text (user wants more detail on an existing topic)
+- "answer": The existing briefing explicitly and completely answers the question (e.g. explaining an acronym, clarifying a fact stated in the brief)
+- "fetch": The question is about a topic in the briefing but asks for a detail, development, or angle NOT covered — fetch fresh articles and answer
 - "brief": Generate a new briefing on a different or more specific topic
 
 Return ONLY valid JSON:
@@ -57,7 +57,8 @@ CRITICAL RULES:
 - "Give me a brief on X", "Give me news on X", "Give me an update on X", "New brief on X" → ALWAYS "brief", query = X
 - "No, new brief" / "New brief" with no topic → "brief", query = the topic being discussed in recent conversation
 - When action is "brief", the query MUST come from the LATEST MESSAGE ONLY — do not add terms from conversation history or briefing context
-- Only use "answer" when the user's question is directly and fully answered by the existing briefing
+- NEVER use "answer" just because the topic is in the brief — only use "answer" when the specific fact asked is explicitly stated there
+- When in doubt between "answer" and "fetch", ALWAYS prefer "fetch" — never tell the user you don't know when more articles could help
 - Prefer "brief" over "fetch" whenever the user explicitly uses the word "brief", "update", or "news on"
 
 Examples:
@@ -65,9 +66,11 @@ Examples:
 - "Give me an update on Deloitte layoffs" → {"action": "brief", "query": "Deloitte layoffs"}
 - "No, new brief" after discussing Meta layoffs → {"action": "brief", "query": "Meta layoffs"}
 - "No: new brief on Deloitte and Meta cutting staff" → {"action": "brief", "query": "Deloitte Meta staff cuts"}
-- "What caused this?" about events in the briefing → {"action": "answer", "query": null}
-- "Tell me more about the ceasefire" when context covers it → {"action": "fetch", "query": "ceasefire latest"}
-- "What else is happening in Ukraine?" → {"action": "fetch", "query": "Ukraine war news"}"""
+- "What caused this?" about events explicitly described in the briefing → {"action": "answer", "query": null}
+- Brief on Orbán, user asks how the winning party is assembling the government → {"action": "fetch", "query": "Orbán Hungary government formation"}
+- "Tell me more about the ceasefire" when context covers it broadly → {"action": "fetch", "query": "ceasefire latest"}
+- "What else is happening in Ukraine?" → {"action": "fetch", "query": "Ukraine war news"}
+- User asks what an acronym means that any LLM would know → {"action": "answer", "query": null}"""
 
 
 def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
@@ -128,7 +131,7 @@ def _classify_v2(context: str, question: str) -> Tuple[str, Optional[str]]:
 
 def _build_supplemental_context(search_query: str) -> str:
     try:
-        articles = fetch_articles([search_query], max_per_topic=4)
+        articles = fetch_articles([search_query], max_per_topic=3)
         logger.info(f"[supplemental] fetched {len(articles)} articles for query={search_query!r}")
         if not articles:
             return ""
