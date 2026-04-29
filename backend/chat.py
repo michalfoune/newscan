@@ -7,13 +7,17 @@ from news import fetch_articles
 
 logger = logging.getLogger(__name__)
 
-CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant. Answer the user's follow-up questions based on the provided briefing context and any supplemental articles included in the context.
+CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant helping users go deeper on a news topic.
 
-Guidelines:
-- Answer directly and concisely from the provided context
+The user has already read the briefing — assume they are informed and are asking because the brief did not fully answer their question.
+
+How to answer:
+- If FRESH ARTICLES are provided: answer primarily from those; the original briefing is just background
+- If fresh articles don't fully cover the question: fill the gap with your general pre-trained knowledge, clearly framed as context (e.g. "Generally speaking..." or "Based on broader trends...")
+- If no fresh articles are provided: answer from the briefing plus your general knowledge of the topic
+- NEVER say "the briefing doesn't mention" or "this isn't in the context" — the user knows what's in the brief; that's why they're asking
 - Do NOT mention fetching, searching, or any internal mechanics — just answer
-- Do NOT offer to look things up, fetch more articles, or suggest the user ask again — simply answer what you know from the context
-- If specific details are not in the context, say so in one sentence and move on
+- If you truly cannot answer even with general knowledge, give the most useful adjacent answer you can
 - Use measured, factual language; no emojis"""
 
 QUALITY_MODELS: dict = {
@@ -255,16 +259,16 @@ def answer_followup_stream(req: ChatStreamRequest):
             yield f"event: status\ndata: {json.dumps({'stage': 'fetching_articles'})}\n\n"
             supplemental = _build_supplemental_context(query)
 
-        context_block = req.context
+        context_block = f"ORIGINAL BRIEFING (user has already read this):\n{req.context}"
         if supplemental:
-            context_block += f"\n\n---\n{supplemental}"
+            context_block += f"\n\nFRESH ARTICLES FETCHED FOR THIS QUESTION:\n{supplemental}"
 
         mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["calm"])
         system = (
             CHAT_SYSTEM
             + f"\n\n{mode_instruction}"
             + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
-            + f"\n\nBriefing context:\n{context_block}"
+            + f"\n\nContext:\n{context_block}"
         )
 
         messages_for_api = [{"role": m.role, "content": m.content} for m in req.messages]
