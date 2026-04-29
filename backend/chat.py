@@ -18,7 +18,12 @@ How to answer:
 - NEVER say "the briefing doesn't mention" or "this isn't in the context" — the user knows what's in the brief; that's why they're asking
 - Do NOT mention fetching, searching, or any internal mechanics — just answer
 - If you truly cannot answer even with general knowledge, give the most useful adjacent answer you can
-- Use measured, factual language; no emojis"""
+- Use measured, factual language; no emojis
+
+Format:
+- Default to 1–2 short paragraphs; only go longer if the topic genuinely requires it
+- Prefer a few bullet points over dense prose when listing facts, steps, or comparisons
+- Bold the most important keywords or phrases within bullets (e.g. **parental leave**, **10% workforce cut**) — sparingly, not every other word"""
 
 QUALITY_MODELS: dict = {
     "fast": "claude-haiku-4-5-20251001",
