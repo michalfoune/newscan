@@ -119,7 +119,15 @@
   background: #e5e3de;
 }
 
+.sidebar-item:active {
+  background: none;
+}
+
 .sidebar-item--active {
+  background: #dedad4;
+}
+
+.sidebar-item--active:active {
   background: #dedad4;
 }
 
