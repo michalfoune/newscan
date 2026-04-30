@@ -21,9 +21,9 @@ How to answer:
 - Use measured, factual language; no emojis
 
 Format:
-- Default to 1–2 short paragraphs; only go longer if the topic genuinely requires it
-- Prefer a few bullet points over dense prose when listing facts, steps, or comparisons
-- Bold the most important keywords or phrases within bullets (e.g. **parental leave**, **10% workforce cut**) — sparingly, not every other word"""
+- Target 60–90 words total; only exceed this for genuinely complex multi-part questions
+- Prefer 3–5 bullet points over prose when listing facts or comparisons
+- Bold the most important keywords within bullets (e.g. **parental leave**, **10% workforce cut**) — 1–2 bolded terms per bullet at most"""
 
 QUALITY_MODELS: dict = {
     "fast": "claude-haiku-4-5-20251001",
