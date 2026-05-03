@@ -257,6 +257,8 @@ def generate_briefing_stream(req: BriefingRequest):
     accumulated = ""
     emitted_count = 0
     item_index = 0
+    max_items = _resolve_count(req.mode, req.article_counts)
+    yielded_items = 0
 
     with client.messages.stream(
         model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
@@ -265,12 +267,16 @@ def generate_briefing_stream(req: BriefingRequest):
         messages=[{"role": "user", "content": user_message}],
     ) as stream:
         for chunk in stream.text_stream:
+            if yielded_items >= max_items:
+                continue
             accumulated += chunk
             new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
             for raw_item in new_items:
                 current_index = item_index
                 item_index += 1
                 if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
+                    continue
+                if yielded_items >= max_items:
                     continue
                 published_at, url, source = (
                     article_meta[current_index % len(article_meta)]
@@ -284,6 +290,7 @@ def generate_briefing_stream(req: BriefingRequest):
                         source=source or None,
                     )
                     yield f"event: item\ndata: {item.model_dump_json()}\n\n"
+                    yielded_items += 1
                 except Exception:
                     pass
 
@@ -340,8 +347,11 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
 
     article_meta = _build_article_meta(articles, now_iso)
 
+    max_items = _resolve_count(req.mode, req.article_counts)
     items = []
     for i, raw_item in enumerate(data["items"]):
+        if len(items) >= max_items:
+            break
         if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
             continue
         published_at, url, source = article_meta[i % len(article_meta)] if article_meta else (now_iso, "", "")
