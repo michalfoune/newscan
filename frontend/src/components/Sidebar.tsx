@@ -102,7 +102,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            New
+            New chat
           </button>
         </div>
         <div className="sidebar-list">
