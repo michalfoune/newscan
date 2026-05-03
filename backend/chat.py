@@ -243,6 +243,7 @@ def answer_followup_stream(req: ChatStreamRequest):
             mode=req.mode,
             system_preferences=req.system_preferences,
             model_quality=req.model_quality,
+            article_counts=req.article_counts,
         )
 
         for event in generate_briefing_stream(brief_req):

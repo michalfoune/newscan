@@ -3,7 +3,7 @@ import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
-import { BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, ThreadItem } from './types';
+import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, ThreadItem } from './types';
 import { Language, translations } from './translations';
 import './App.css';
 
@@ -11,19 +11,24 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const STORAGE_KEY = 'rizma-conversations';
 const PREFS_KEY = 'rizma-preferences';
 const QUALITY_KEY = 'rizma-model-quality';
+const COUNTS_KEY = 'rizma-article-counts';
+const DEFAULT_COUNTS: ArticleCounts = { calm: 2, balanced: 3, brave: 4 };
 
 const LANGUAGES: Language[] = ['en', 'cs'];
 const QUALITIES: ModelQuality[] = ['fast', 'standard', 'best'];
 const QUALITY_LABELS: Record<ModelQuality, string> = { fast: 'Fast', standard: 'Standard', best: 'Best' };
+const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, onClose, storageBytes }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, onClose, storageBytes }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
   onLanguageChange: (l: Language) => void;
   modelQuality: ModelQuality;
   onModelQualityChange: (q: ModelQuality) => void;
+  articleCounts: ArticleCounts;
+  onArticleCountChange: (mode: Mode, count: number) => void;
   onClose: () => void;
   storageBytes: number;
 }) {
@@ -67,6 +72,24 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
             >
               {QUALITY_LABELS[q]}
             </button>
+          ))}
+        </div>
+      </div>
+      <div className="settings-section">
+        <p className="settings-section-label">Max stories per briefing</p>
+        <div className="settings-counts-row">
+          {MODES.map(m => (
+            <label key={m} className="settings-count-item">
+              <span className="settings-count-label">{m.charAt(0).toUpperCase() + m.slice(1)}</span>
+              <input
+                type="number"
+                className="settings-count-input"
+                min={1}
+                max={10}
+                value={articleCounts[m]}
+                onChange={e => onArticleCountChange(m, Number(e.target.value))}
+              />
+            </label>
           ))}
         </div>
       </div>
@@ -147,6 +170,10 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [systemPreferences, setSystemPreferences] = useState(() => localStorage.getItem(PREFS_KEY) ?? '');
   const [modelQuality, setModelQuality] = useState<ModelQuality>(() => (localStorage.getItem(QUALITY_KEY) as ModelQuality) ?? 'fast');
+  const [articleCounts, setArticleCounts] = useState<ArticleCounts>(() => {
+    try { return { ...DEFAULT_COUNTS, ...JSON.parse(localStorage.getItem(COUNTS_KEY) ?? '{}') }; }
+    catch { return DEFAULT_COUNTS; }
+  });
   const [storageBytes, setStorageBytes] = useState(() => new Blob([localStorage.getItem(STORAGE_KEY) ?? '']).size);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -164,6 +191,12 @@ export default function App() {
   const handleQualityChange = (q: ModelQuality) => {
     setModelQuality(q);
     localStorage.setItem(QUALITY_KEY, q);
+  };
+
+  const handleArticleCountChange = (m: Mode, count: number) => {
+    const next = { ...articleCounts, [m]: Math.max(1, Math.min(10, count)) };
+    setArticleCounts(next);
+    localStorage.setItem(COUNTS_KEY, JSON.stringify(next));
   };
 
   const t = translations[language];
@@ -190,7 +223,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality }),
+        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts }),
         signal: abortRef.current.signal,
       });
       if (!res.ok) {
@@ -362,6 +395,8 @@ export default function App() {
                   onLanguageChange={setLanguage}
                   modelQuality={modelQuality}
                   onModelQualityChange={handleQualityChange}
+                  articleCounts={articleCounts}
+                  onArticleCountChange={handleArticleCountChange}
                   onClose={() => setSettingsOpen(false)}
                   storageBytes={storageBytes}
                 />
@@ -405,6 +440,7 @@ export default function App() {
                 onThreadChange={handleThreadChange}
                 systemPreferences={systemPreferences}
                 modelQuality={modelQuality}
+                articleCounts={articleCounts}
               />
             </>
           )}

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { BriefingItem, BriefingResponse, Mode, ThreadItem } from '../types';
+import { ArticleCounts, BriefingItem, BriefingResponse, Mode, ThreadItem } from '../types';
 import { Translations } from '../translations';
 import { BriefingFeed } from './BriefingFeed';
 
@@ -86,9 +86,10 @@ interface Props {
   onThreadChange: (thread: ThreadItem[]) => void;
   systemPreferences?: string;
   modelQuality?: string;
+  articleCounts?: ArticleCounts;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences, modelQuality }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences, modelQuality, articleCounts }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
@@ -188,6 +189,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           mode: chatMode,
           system_preferences: systemPreferences?.trim() || undefined,
           model_quality: modelQuality,
+          article_counts: articleCounts,
         }),
         signal: abortRef.current.signal,
       });

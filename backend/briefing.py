@@ -1,6 +1,7 @@
 import json
 import anthropic
 from datetime import datetime, timezone
+from typing import Optional
 from models import BriefingRequest, BriefingResponse, BriefingItem
 from news import fetch_articles
 
@@ -64,35 +65,35 @@ MODE_ARTICLE_COUNTS: dict = {
     "brave": 4,
 }
 
-MODE_INSTRUCTIONS: dict = {
-    "calm": f"""
-Content mode: CALM
-- Return at most {MODE_ARTICLE_COUNTS['calm']} news items total
+MODE_INSTRUCTION_TEMPLATES: dict = {
+    "calm": """Content mode: CALM
+- Return at most {count} news items total
 - No graphic, violent, or viscerally distressing details — describe outcomes without vivid imagery
 - Frame all concerning news with context and, where genuine, stabilizing perspective
 - Include at least 1 positive or neutral story even if the user's query is heavy
 - Use gentle, grounded language — avoid alarming words like "devastating", "catastrophic", "crisis"
 - Overall tone should feel like a calm, trusted friend summarizing the day, not a news anchor
-- Order items from least to most concerning: positive stories first, neutral next, concerning last
-""",
-    "balanced": f"""
-Content mode: BALANCED
-- Return up to {MODE_ARTICLE_COUNTS['balanced']} news items
+- Order items from least to most concerning: positive stories first, neutral next, concerning last""",
+    "balanced": """Content mode: BALANCED
+- Return up to {count} news items
 - Cover news honestly but avoid sensationalism and graphic detail
 - Use measured, factual language; maintain a natural mix of tones
 - Apply any user preferences where set
 - Order items by tone first: positive stories first, neutral next, concerning last
-- Exception: if one story is clearly far more significant or directly relevant than the others, place it first regardless of tone — but only when the importance gap is substantial, not as a general rule
-""",
-    "brave": f"""
-Content mode: BRAVE
-- Return up to {MODE_ARTICLE_COUNTS['brave']} news items
+- Exception: if one story is clearly far more significant or directly relevant than the others, place it first regardless of tone — but only when the importance gap is substantial, not as a general rule""",
+    "brave": """Content mode: BRAVE
+- Return up to {count} news items
 - Standard journalistic directness — report facts and outcomes as found in the source material
 - Do not soften language or filter for emotional impact
 - Suitable for users who want complete, unfiltered news awareness
-- Order items by news significance and direct relevance to the user's request, most important first
-""",
+- Order items by news significance and direct relevance to the user's request, most important first""",
 }
+
+
+def _resolve_count(mode: str, article_counts: Optional[dict]) -> int:
+    if article_counts and mode in article_counts:
+        return max(1, min(int(article_counts[mode]), 10))
+    return MODE_ARTICLE_COUNTS.get(mode, 3)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -198,10 +199,11 @@ def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: li
         "en": "Respond entirely in English (US).",
         "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
     }
-    mode_instruction = MODE_INSTRUCTIONS.get(req.mode, MODE_INSTRUCTIONS["calm"])
+    count = _resolve_count(req.mode, req.article_counts)
+    mode_instruction = MODE_INSTRUCTION_TEMPLATES.get(req.mode, MODE_INSTRUCTION_TEMPLATES["calm"]).format(count=count)
     system = (
         BRIEFING_SYSTEM_PROMPT
-        + f"\n\n{mode_instruction.strip()}"
+        + f"\n\n{mode_instruction}"
         + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
     )
     if req.system_preferences and req.system_preferences.strip():

@@ -26,6 +26,7 @@ class BriefingRequest(BaseModel):
     language: str = "en"
     mode: str = "calm"  # "calm" | "balanced" | "brave"
     model_quality: str = "fast"  # "fast" | "standard" | "best"
+    article_counts: Optional[dict] = None  # {"calm": 2, "balanced": 3, "brave": 4}
 
 
 class BriefingResponse(BaseModel):
@@ -59,3 +60,4 @@ class ChatStreamRequest(BaseModel):
     mode: str = "calm"
     system_preferences: Optional[str] = None
     model_quality: str = "fast"  # "fast" | "standard" | "best"
+    article_counts: Optional[dict] = None
