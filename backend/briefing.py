@@ -28,6 +28,7 @@ Core principles:
 - Avoid graphic detail and emotionally manipulative framing
 - Keep summaries concise: 2–3 sentences, high-signal, no filler
 - Respect any balance rules the user sets (e.g. max concerning stories)
+- You will receive more source articles than you need — select only the most relevant ones; ignore articles that are tangentially related or off-topic
 - If no articles are provided for a requested topic, omit it gracefully
 
 Output: Return ONLY a valid JSON object. No markdown, no code fences, no text outside the JSON.
@@ -48,6 +49,8 @@ Schema:
 }
 
 IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
+
+FETCH_PER_TOPIC = 20  # articles fetched per topic; LLM selects the best MODE_ARTICLE_COUNTS[mode] from these
 
 QUALITY_MODELS: dict = {
     "fast": "claude-haiku-4-5-20251001",
@@ -237,8 +240,7 @@ def generate_briefing_stream(req: BriefingRequest):
     topics = _extract_topics(req.request, client)
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
 
-    max_per_topic = MODE_ARTICLE_COUNTS.get(req.mode, 4)
-    articles = fetch_articles(topics, max_per_topic=max_per_topic)
+    articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
 
     if not articles:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics})}\n\n"
@@ -312,8 +314,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
 
     topics = _extract_topics(req.request, client)
 
-    max_per_topic = MODE_ARTICLE_COUNTS.get(req.mode, 4)
-    articles = fetch_articles(topics, max_per_topic=max_per_topic)
+    articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
 
     if not articles:
         return BriefingResponse(items=[], generated_at=now_iso, missing_topics=topics)

@@ -18,16 +18,19 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
     date_start_2d = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
     date_start_7d = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
-    def _run_query(er: EventRegistry, keywords: Optional[str], date_start: str = date_start_2d) -> list[dict]:
+    def _run_query(er: EventRegistry, keywords: Optional[str], date_start: str = date_start_2d, min_sim: float = 0.3) -> list[dict]:
         kwargs = dict(lang="eng", dateStart=date_start, dataType=["news"])
         if keywords:
             kwargs["keywords"] = keywords
         q = QueryArticlesIter(**kwargs)
         results = []
         seen: set[str] = set()
-        for article in q.execQuery(er, sortBy="date", maxItems=max_per_topic * 2):
+        for article in q.execQuery(er, sortBy="rel", maxItems=max_per_topic * 4):
             url = article.get("url", "")
             if not url or url in seen:
+                continue
+            sim = float(article.get("sim", 1.0))
+            if sim < min_sim:
                 continue
             seen.add(url)
             raw_body = article.get("body") or ""
@@ -39,6 +42,7 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
                 "source": article.get("source", {}).get("title", "Unknown"),
                 "datetime": article.get("dateTime", ""),
                 "url": url,
+                "sim": sim,
             })
             if len(results) >= max_per_topic:
                 break
