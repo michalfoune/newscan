@@ -319,6 +319,26 @@ body {
   font-weight: 600;
 }
 
+@media (min-width: 769px) {
+  .app-title {
+    font-size: 2.19rem;
+  }
+
+  .app-tagline {
+    font-size: 1.19rem;
+  }
+
+  .settings-btn {
+    width: 2.13rem;
+    height: 2.13rem;
+  }
+
+  .settings-btn svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
 .app-main {
   max-width: 960px;
   width: 100%;
