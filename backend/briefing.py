@@ -242,10 +242,19 @@ def generate_briefing_stream(req: BriefingRequest):
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
 
-    topics = _extract_topics(req.request, client)
+    try:
+        topics = _extract_topics(req.request, client)
+    except Exception:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': []})}\n\n"
+        return
+
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
 
-    articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
+    try:
+        articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
+    except Exception:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics})}\n\n"
+        return
 
     if not articles:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics})}\n\n"

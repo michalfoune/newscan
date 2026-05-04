@@ -21,7 +21,9 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
     def _run_query(er: EventRegistry, keywords: Optional[str], date_start: str = date_start_2d, min_sim: float = 0.3) -> list[dict]:
         kwargs = dict(lang="eng", dateStart=date_start, dataType=["news"])
         if keywords:
-            kwargs["keywords"] = keywords
+            # NewsAPI.ai (EventRegistry) free/basic plan caps at 15 keywords
+            words = keywords.split()
+            kwargs["keywords"] = " ".join(words[:15]) if len(words) > 15 else keywords
         q = QueryArticlesIter(**kwargs)
         results = []
         seen: set[str] = set()
@@ -54,16 +56,19 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
         if cached and time.time() - cached[0] < _CACHE_TTL:
             return cached[1]
 
-        er = EventRegistry(apiKey=api_key, allowUseOfArchive=False)
+        try:
+            er = EventRegistry(apiKey=api_key, allowUseOfArchive=False)
 
-        results = _run_query(er, topic)
-        if not results:
-            short = " ".join(topic.split()[:2])
-            if short != topic:
-                results = _run_query(er, short)
-        if not results:
-            # Widen to 7 days before giving up — never fall back to unrelated content
-            results = _run_query(er, topic, date_start=date_start_7d)
+            results = _run_query(er, topic)
+            if not results:
+                short = " ".join(topic.split()[:2])
+                if short != topic:
+                    results = _run_query(er, short)
+            if not results:
+                # Widen to 7 days before giving up — never fall back to unrelated content
+                results = _run_query(er, topic, date_start=date_start_7d)
+        except Exception:
+            results = []
 
         _cache[cache_key] = (time.time(), results)
         return results
