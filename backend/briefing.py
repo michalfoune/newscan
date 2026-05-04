@@ -66,26 +66,29 @@ MODE_ARTICLE_COUNTS: dict = {
 }
 
 MODE_INSTRUCTION_TEMPLATES: dict = {
-    "calm": """Content mode: CALM
+    "calm": """Content mode: CALM — written for highly sensitive people (HSP)
 - Return at most {count} news items total
-- No graphic, violent, or viscerally distressing details — describe outcomes without vivid imagery
-- Frame all concerning news with context and, where genuine, stabilizing perspective
+- Ease into difficult topics: open with context before stating the concerning fact, so the reader is oriented before they feel alarmed
+- Explicitly separate the reader from the threat where truthfully possible (e.g. "this is happening abroad and does not directly affect…")
+- Highlight stabilizing facts: measured responses by leaders, ongoing diplomacy, what is NOT happening — where genuine
 - Include at least 1 positive or neutral story even if the user's query is heavy
-- Use gentle, grounded language — avoid alarming words like "devastating", "catastrophic", "crisis"
-- Overall tone should feel like a calm, trusted friend summarizing the day, not a news anchor
+- No graphic, violent, or viscerally distressing details — describe outcomes without vivid imagery
+- Avoid alarm words: "devastating", "catastrophic", "crisis", "chaos", "collapse", "terror" — use "serious", "difficult", "challenging" instead
+- Tone: a calm, caring friend who respects your sensitivity and trusts you to handle the truth — gently
 - Order items from least to most concerning: positive stories first, neutral next, concerning last""",
-    "balanced": """Content mode: BALANCED
+    "balanced": """Content mode: BALANCED — HSP-aware but complete
 - Return up to {count} news items
-- Cover news honestly but avoid sensationalism and graphic detail
+- Written with awareness that readers may be sensitive: avoid sensationalism, graphic detail, and emotionally charged framing
+- Provide brief context before stating concerning facts — don't lead with alarm
+- Where relevant, note stabilizing elements (diplomatic efforts, limited scope, measured official responses) alongside difficult news
 - Use measured, factual language; maintain a natural mix of tones
-- Apply any user preferences where set
 - Order items by tone first: positive stories first, neutral next, concerning last
-- Exception: if one story is clearly far more significant or directly relevant than the others, place it first regardless of tone — but only when the importance gap is substantial, not as a general rule""",
+- Exception: if one story is clearly far more significant or directly relevant than the others, place it first regardless of tone — but only when the importance gap is substantial""",
     "brave": """Content mode: BRAVE
 - Return up to {count} news items
 - Standard journalistic directness — report facts and outcomes as found in the source material
 - Do not soften language or filter for emotional impact
-- Suitable for users who want complete, unfiltered news awareness
+- Still write with humanity: state facts plainly but avoid gratuitous or sensational framing
 - Order items by news significance and direct relevance to the user's request, most important first""",
 }
 

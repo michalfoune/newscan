@@ -1140,6 +1140,12 @@ textarea::placeholder {
   color: #2c2c2c;
   outline: none;
   box-shadow: none;
+  resize: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  line-height: 1.45;
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 .feed-header {

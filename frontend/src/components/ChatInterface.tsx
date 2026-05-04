@@ -390,13 +390,14 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
       )}
 
       <div className="query-box">
-        <input
+        <textarea
           className="chat-query-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={t.chatPlaceholder}
           disabled={sending}
+          rows={1}
         />
         <div className="query-box-footer">
           <div />

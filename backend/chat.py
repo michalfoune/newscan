@@ -32,9 +32,18 @@ QUALITY_MODELS: dict = {
 }
 
 CHAT_MODE_INSTRUCTIONS: dict = {
-    "calm": "Tone: Use gentle, reassuring language. Avoid alarming words. Frame difficult facts with context. Keep answers brief.",
-    "balanced": "Tone: Be honest and clear without sensationalism. Balanced, measured responses.",
-    "brave": "Tone: Direct, journalistic. Report facts plainly without softening. Full detail where relevant.",
+    "calm": """Tone — CALM (highly sensitive person / HSP mode):
+- Ease into difficult topics: give context first, then the concerning fact — never lead with alarm
+- Explicitly separate the reader from the threat where truthfully possible
+- Highlight what is stable, measured, or contained alongside any difficult news
+- Use gentle, grounded language — avoid "devastating", "catastrophic", "crisis", "chaos"; prefer "serious", "difficult", "challenging"
+- Feel like a calm, caring friend who respects emotional sensitivity and trusts the reader to handle truth gently""",
+    "balanced": """Tone — BALANCED (HSP-aware):
+- Be honest and complete, but avoid sensationalism and emotionally charged framing
+- Briefly orient the reader before stating concerning facts
+- Note stabilizing elements where relevant (diplomacy, limited scope, measured responses)
+- Measured, factual language — no alarm words, no graphic detail""",
+    "brave": "Tone — BRAVE: Direct, journalistic. Report facts plainly without softening. Still write with humanity — no gratuitous or sensational framing.",
 }
 
 CLASSIFIER_PROMPT = """You are a routing assistant. Given a briefing context and a user question, decide whether the question can be answered SPECIFICALLY AND DIRECTLY from the context alone.
