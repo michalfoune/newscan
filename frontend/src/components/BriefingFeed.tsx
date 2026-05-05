@@ -111,11 +111,12 @@ interface Props {
   t: Translations;
   mode: Mode;
   generationSeconds?: number | null;
+  showKeywords?: boolean;
 }
 
 const INITIAL_VISIBLE = 2;
 
-export function BriefingFeed({ response, t, mode, generationSeconds }: Props) {
+export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true }: Props) {
   const [selected, setSelected] = useState<BriefingItem | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -159,18 +160,14 @@ export function BriefingFeed({ response, t, mode, generationSeconds }: Props) {
             No articles found for: {response.missing_topics.join(', ')}
           </p>
         )}
-        {(response.keyword_trimmed || (response.topics && response.topics.length > 0)) && (
+        {showKeywords && response.topics && response.topics.length > 0 && (
           <div className="feed-trimmed-notice">
-            {response.keyword_trimmed && (
-              <p className="feed-missing-topics">Your search was trimmed due to a free plan limit.</p>
-            )}
-            {response.topics && response.topics.length > 0 && (
-              <div className="feed-topic-tags">
-                {response.topics.map((topic, i) => (
-                  <span key={i} className="feed-topic-tag">{topic}</span>
-                ))}
-              </div>
-            )}
+            <p className="feed-missing-topics">Searched for:</p>
+            <div className="feed-topic-tags">
+              {response.topics.map((topic, i) => (
+                <span key={i} className="feed-topic-tag">{topic}</span>
+              ))}
+            </div>
           </div>
         )}
 

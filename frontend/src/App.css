@@ -799,6 +799,26 @@ textarea::placeholder {
   border-color: #aaa;
 }
 
+.settings-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.settings-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #4838a8;
+  flex-shrink: 0;
+}
+
+.settings-checkbox-label {
+  font-size: 0.84rem;
+  color: #555;
+}
+
 .settings-storage-size {
   font-size: 0.82rem;
   color: #666;
@@ -926,7 +946,9 @@ textarea::placeholder {
 
 .feed-trimmed-notice {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.45rem;
 }
 

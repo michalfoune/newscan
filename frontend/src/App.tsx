@@ -12,6 +12,7 @@ const STORAGE_KEY = 'rizma-conversations';
 const PREFS_KEY = 'rizma-preferences';
 const QUALITY_KEY = 'rizma-model-quality';
 const COUNTS_KEY = 'rizma-article-counts';
+const SHOW_KEYWORDS_KEY = 'rizma-show-keywords';
 const DEFAULT_COUNTS: ArticleCounts = { calm: 2, balanced: 3, brave: 4 };
 
 const LANGUAGES: Language[] = ['en', 'cs'];
@@ -20,7 +21,7 @@ const QUALITY_LABELS: Record<ModelQuality, string> = { fast: 'Fast', standard: '
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, onClose, storageBytes }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, onClose, storageBytes }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
@@ -29,6 +30,8 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
   onModelQualityChange: (q: ModelQuality) => void;
   articleCounts: ArticleCounts;
   onArticleCountChange: (mode: Mode, count: number) => void;
+  showKeywords: boolean;
+  onShowKeywordsChange: (v: boolean) => void;
   onClose: () => void;
   storageBytes: number;
 }) {
@@ -92,6 +95,17 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
             </label>
           ))}
         </div>
+      </div>
+      <div className="settings-section">
+        <label className="settings-checkbox-row">
+          <input
+            type="checkbox"
+            className="settings-checkbox"
+            checked={showKeywords}
+            onChange={e => onShowKeywordsChange(e.target.checked)}
+          />
+          <span className="settings-checkbox-label">Show used keywords</span>
+        </label>
       </div>
       <div className="settings-section">
         <p className="settings-section-label">History storage</p>
@@ -175,6 +189,7 @@ export default function App() {
     catch { return DEFAULT_COUNTS; }
   });
   const [storageBytes, setStorageBytes] = useState(() => new Blob([localStorage.getItem(STORAGE_KEY) ?? '']).size);
+  const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -191,6 +206,11 @@ export default function App() {
   const handleQualityChange = (q: ModelQuality) => {
     setModelQuality(q);
     localStorage.setItem(QUALITY_KEY, q);
+  };
+
+  const handleShowKeywordsChange = (v: boolean) => {
+    setShowKeywords(v);
+    localStorage.setItem(SHOW_KEYWORDS_KEY, String(v));
   };
 
   const handleArticleCountChange = (m: Mode, count: number) => {
@@ -401,6 +421,8 @@ export default function App() {
                   onModelQualityChange={handleQualityChange}
                   articleCounts={articleCounts}
                   onArticleCountChange={handleArticleCountChange}
+                  showKeywords={showKeywords}
+                  onShowKeywordsChange={handleShowKeywordsChange}
                   onClose={() => setSettingsOpen(false)}
                   storageBytes={storageBytes}
                 />
@@ -436,7 +458,7 @@ export default function App() {
           )}
           {response && response.items.length > 0 && (
             <>
-              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} />
+              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}
