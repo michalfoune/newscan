@@ -23,7 +23,7 @@ TOPIC_EXTRACTION_PROMPT = (
     '[["Deloitte layoffs", "Deloitte job cuts"], ["Meta layoffs", "Meta staff cuts"]] | '
     '[["Gaza conflict", "Gaza war", "Gaza crisis"]] | [["Fed interest rates", "Federal Reserve rates"]]. '
     "For broad requests (e.g. 'top news today'), return [[\"world news\", \"top stories\"]]. "
-    "Always place the year-free phrasing first in each group. Only include a year-qualified variant if the user explicitly stated that year, and place it last. "
+    "Never include years (e.g. 2024, 2026) in any search string — not even if the user mentioned a year. Years corrupt keyword search results. "
     "Return ONLY valid JSON. Do NOT answer the question or explain your reasoning."
 )
 
