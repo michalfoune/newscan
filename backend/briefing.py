@@ -111,10 +111,16 @@ def _strip_fences(raw: str) -> str:
 
 
 def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
+    from datetime import date
+    today = date.today().strftime("%B %d, %Y")
+    system = (
+        TOPIC_EXTRACTION_PROMPT
+        + f" Today's date is {today} — use this to resolve relative terms like 'next', 'upcoming', or 'recent' correctly. Do NOT append a year to a topic unless the user explicitly stated that year."
+    )
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=256,
-        system=TOPIC_EXTRACTION_PROMPT,
+        system=system,
         messages=[{"role": "user", "content": request}],
     )
     raw = _strip_fences(msg.content[0].text.strip())
