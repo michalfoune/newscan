@@ -9,8 +9,9 @@ _cache: dict = {}
 _CACHE_TTL = 300  # 5 minutes
 
 
-def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
-    """Fetch recent English-language articles for each topic from NewsAPI.ai, in parallel."""
+def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4) -> list[dict]:
+    """Fetch recent English-language articles for each topic group from NewsAPI.ai, in parallel.
+    Each group is [primary, variant1, variant2...] — variants are tried in order until one returns results."""
     api_key = os.environ.get("NEWS_API_KEY")
     if not api_key:
         raise ValueError("NEWS_API_KEY is not set in environment")
@@ -18,7 +19,7 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
     date_start_2d = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
     date_start_7d = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
-    def _run_query(er: EventRegistry, keywords: Optional[str], date_start: str = date_start_2d, min_sim: float = 0.3) -> list[dict]:
+    def _run_query(er: EventRegistry, keywords: Optional[str], date_start: str = date_start_2d, min_sim: float = 0.0) -> list[dict]:
         kwargs = dict(lang="eng", dateStart=date_start, dataType=["news"])
         if keywords:
             # NewsAPI.ai (EventRegistry) free/basic plan caps at 15 keywords
@@ -50,31 +51,39 @@ def fetch_articles(topics: list[str], max_per_topic: int = 4) -> list[dict]:
                 break
         return results
 
-    def fetch_topic(topic: str) -> list[dict]:
-        cache_key = f"{topic}:{max_per_topic}"
+    def fetch_topic_group(group: list[str]) -> list[dict]:
+        primary = group[0]
+        cache_key = f"{primary}:{max_per_topic}"
         cached = _cache.get(cache_key)
         if cached and time.time() - cached[0] < _CACHE_TTL:
             return cached[1]
 
         try:
             er = EventRegistry(apiKey=api_key, allowUseOfArchive=False)
-
-            results = _run_query(er, topic)
+            results = []
+            # Try each variant (2-day window) — short-circuit on first hit
+            for keyword in group:
+                results = _run_query(er, keyword)
+                if results:
+                    break
+            # Widen to 7 days if still nothing, trying variants again
             if not results:
-                short = " ".join(topic.split()[:2])
-                if short != topic:
-                    results = _run_query(er, short)
-            if not results:
-                # Widen to 7 days before giving up — never fall back to unrelated content
-                results = _run_query(er, topic, date_start=date_start_7d)
+                for keyword in group:
+                    results = _run_query(er, keyword, date_start=date_start_7d)
+                    if results:
+                        break
         except Exception:
             results = []
+
+        # Always label articles with the primary topic name for consistent tracking
+        for r in results:
+            r["topic"] = primary
 
         _cache[cache_key] = (time.time(), results)
         return results
 
-    with ThreadPoolExecutor(max_workers=len(topics)) as executor:
-        topic_results = list(executor.map(fetch_topic, topics))
+    with ThreadPoolExecutor(max_workers=len(topic_groups)) as executor:
+        topic_results = list(executor.map(fetch_topic_group, topic_groups))
 
     seen_urls: set[str] = set()
     articles = []

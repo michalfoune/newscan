@@ -11,16 +11,20 @@ from news import fetch_articles
 # ---------------------------------------------------------------------------
 
 TOPIC_EXTRACTION_PROMPT = (
-    "Extract the main news topics from the user's request as a JSON array with 1 or 2 elements. "
-    "Use 2–3 nouns or proper nouns only per topic — no verbs, adjectives, or question words. "
-    "Each term must be something that would literally appear in a news headline. "
-    "CRITICAL: Named entities — country names, city names, organization names, person names — are the most important words in a topic. "
-    "If the query mentions a specific country or region, that name MUST appear verbatim in the extracted topic. Never drop a geographic entity. "
-    "Temporal qualifiers like 'next' or 'upcoming' are secondary — always include the place or subject, not just the time reference. "
-    "When the request names two distinct entities or subjects, return a separate topic for each. "
-    'Examples: ["Ukraine ceasefire"] | ["Fed interest rates"] | ["Deloitte layoffs", "Meta layoffs"] | ["Gaza conflict"] | ["United States elections"]. '
-    "For broad requests (e.g. 'top news today'), return [\"world news\"]. "
-    "Return ONLY valid JSON. Do NOT answer the question or explain your reasoning. Maximum 2 topics."
+    "Extract the main news topics from the user's request. "
+    "Return a JSON array of topic groups. Each group is an array of 2–3 keyword search strings for the SAME topic, "
+    "ordered from most natural to broadest. Vary word order and phrasing across alternatives so they match differently "
+    "in a keyword search engine (e.g. ['Midterms in Indiana', 'Indiana midterm elections', 'Indiana primary 2026']). "
+    "Use 2–4 nouns or proper nouns per string — no verbs, adjectives, or question words. "
+    "Each string must be something that would literally appear in a news headline. "
+    "CRITICAL: Named entities — country names, city names, organizations, people — must appear in EVERY string in the group. "
+    "When the request names two distinct subjects, return a separate group for each. Maximum 2 groups. "
+    'Examples: [["United States elections", "US elections", "American elections"]] | '
+    '[["Deloitte layoffs", "Deloitte job cuts"], ["Meta layoffs", "Meta staff cuts"]] | '
+    '[["Gaza conflict", "Gaza war", "Gaza crisis"]] | [["Fed interest rates", "Federal Reserve rates"]]. '
+    "For broad requests (e.g. 'top news today'), return [[\"world news\", \"top stories\"]]. "
+    "Always place the year-free phrasing first in each group. Only include a year-qualified variant if the user explicitly stated that year, and place it last. "
+    "Return ONLY valid JSON. Do NOT answer the question or explain your reasoning."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.
@@ -114,7 +118,9 @@ def _strip_fences(raw: str) -> str:
     return raw.strip()
 
 
-def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
+def _extract_topic_groups(request: str, client: anthropic.Anthropic) -> list[list[str]]:
+    """Return topic groups: each group is [primary, variant1, variant2] for the same subject.
+    Multiple groups = multiple distinct subjects in the query."""
     from datetime import date
     today = date.today().strftime("%B %d, %Y")
     system = (
@@ -123,19 +129,24 @@ def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
     )
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=256,
+        max_tokens=384,
         system=system,
         messages=[{"role": "user", "content": request}],
     )
     raw = _strip_fences(msg.content[0].text.strip())
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError:
-        # Haiku sometimes wraps the array in explanation text — extract it
-        match = re.search(r'\[.*?\]', raw, re.DOTALL)
+        # Extract outermost [...] if Haiku adds surrounding text
+        match = re.search(r'\[.*\]', raw, re.DOTALL)
         if match:
-            return json.loads(match.group())
-        raise
+            data = json.loads(match.group())
+        else:
+            raise
+    # Normalise: if Haiku returned a flat list of strings, wrap each in a list
+    if data and isinstance(data[0], str):
+        return [[s] for s in data]
+    return data
 
 
 
@@ -264,25 +275,27 @@ def generate_briefing_stream(req: BriefingRequest):
     keyword_trimmed = len(req.request.split()) > 15
 
     try:
-        topics = _extract_topics(req.request, client)
+        topic_groups = _extract_topic_groups(req.request, client)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
         return
 
+    primaries = [g[0] for g in topic_groups]
+
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
 
     try:
-        articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC)
     except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed, 'topics': topics})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
         return
 
     if not articles:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed, 'topics': topics})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
         return
 
     topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in topics if t not in topics_with_articles]
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
 
     system, user_message = _build_prompt(req, articles, missing_topics)
     article_meta = _build_article_meta(articles, now_iso)
@@ -346,7 +359,7 @@ def generate_briefing_stream(req: BriefingRequest):
         except Exception:
             pass
 
-    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': topics})}\n\n"
+    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:
@@ -354,15 +367,16 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
 
-    topics = _extract_topics(req.request, client)
+    topic_groups = _extract_topic_groups(req.request, client)
+    primaries = [g[0] for g in topic_groups]
 
-    articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
+    articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC)
 
     if not articles:
-        return BriefingResponse(items=[], generated_at=now_iso, missing_topics=topics)
+        return BriefingResponse(items=[], generated_at=now_iso, missing_topics=primaries)
 
     topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in topics if t not in topics_with_articles]
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
 
     system, user_message = _build_prompt(req, articles, missing_topics)
 
