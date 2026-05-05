@@ -365,7 +365,7 @@ body {
   display: inline-block;
   padding: 0.22rem 0.85rem;
   background: #e8e6e1;
-  border-radius: 999px;
+  border-radius: 20px;
   cursor: pointer;
   transition: background 0.15s;
   max-width: 560px;
