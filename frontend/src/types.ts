@@ -16,6 +16,7 @@ export interface BriefingResponse {
   overall_summary?: string;
   generated_at: string;
   missing_topics: string[];
+  keyword_trimmed?: boolean;
 }
 
 export interface ChatMessage {

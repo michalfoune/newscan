@@ -1,4 +1,5 @@
 import json
+import re
 import anthropic
 from datetime import datetime, timezone
 from typing import Optional
@@ -116,7 +117,15 @@ def _extract_topics(request: str, client: anthropic.Anthropic) -> list[str]:
         system=TOPIC_EXTRACTION_PROMPT,
         messages=[{"role": "user", "content": request}],
     )
-    return json.loads(_strip_fences(msg.content[0].text.strip()))
+    raw = _strip_fences(msg.content[0].text.strip())
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Haiku sometimes wraps the array in explanation text — extract it
+        match = re.search(r'\[.*?\]', raw, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        raise
 
 
 
@@ -242,10 +251,12 @@ def generate_briefing_stream(req: BriefingRequest):
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
 
+    keyword_trimmed = len(req.request.split()) > 15
+
     try:
         topics = _extract_topics(req.request, client)
     except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': []})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed})}\n\n"
         return
 
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
@@ -253,11 +264,11 @@ def generate_briefing_stream(req: BriefingRequest):
     try:
         articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
     except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed})}\n\n"
         return
 
     if not articles:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed})}\n\n"
         return
 
     topics_with_articles = {a["topic"] for a in articles}
@@ -325,7 +336,7 @@ def generate_briefing_stream(req: BriefingRequest):
         except Exception:
             pass
 
-    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics})}\n\n"
+    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed})}\n\n"
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:

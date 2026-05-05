@@ -279,13 +279,14 @@ export default function App() {
                 setConversations(prev => prev.map(c => c.id === cid ? { ...c, response: { ...c.response, items: snap } } : c));
               }
             } else if (eventType === 'done' && dataLine) {
-              const doneData = JSON.parse(dataLine) as { overall_summary?: string; generated_at: string; missing_topics: string[] };
+              const doneData = JSON.parse(dataLine) as { overall_summary?: string; generated_at: string; missing_topics: string[]; keyword_trimmed?: boolean };
               setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
               setResponse(prev => ({
                 items: prev?.items ?? [],
                 overall_summary: doneData.overall_summary,
                 generated_at: doneData.generated_at,
                 missing_topics: doneData.missing_topics,
+                keyword_trimmed: doneData.keyword_trimmed,
               }));
               if (convId) {
                 const cid = convId;
@@ -296,6 +297,7 @@ export default function App() {
                     overall_summary: doneData.overall_summary,
                     generated_at: doneData.generated_at,
                     missing_topics: doneData.missing_topics,
+                    keyword_trimmed: doneData.keyword_trimmed,
                   },
                 } : c));
               }
@@ -423,7 +425,12 @@ export default function App() {
           )}
           {error && <div className="error-banner">{error}</div>}
           {response && response.items.length === 0 && (
-            <p className="no-results">{t.noResults}</p>
+            <div className="no-results">
+              <p>{t.noResults}</p>
+              {response.keyword_trimmed && (
+                <p style={{ marginTop: '0.4rem' }}>Your search query was trimmed due to a free plan limit.</p>
+              )}
+            </div>
           )}
           {response && response.items.length > 0 && (
             <>

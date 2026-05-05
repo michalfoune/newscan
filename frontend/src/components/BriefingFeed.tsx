@@ -159,6 +159,11 @@ export function BriefingFeed({ response, t, mode, generationSeconds }: Props) {
             No articles found for: {response.missing_topics.join(', ')}
           </p>
         )}
+        {response.keyword_trimmed && (
+          <p className="feed-missing-topics">
+            Your search was trimmed due to a free plan limit.
+          </p>
+        )}
 
         {response.overall_summary && (
           <div className="overall-summary">
