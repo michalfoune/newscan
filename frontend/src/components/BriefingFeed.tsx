@@ -155,11 +155,6 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
           </div>
         )}
 
-        {response.missing_topics.length > 0 && (
-          <p className="feed-missing-topics">
-            No articles found for: {response.missing_topics.join(', ')}
-          </p>
-        )}
         {showKeywords && response.topics && response.topics.length > 0 && (
           <div className="feed-trimmed-notice">
             <p className="feed-missing-topics">Searched for:</p>
@@ -169,6 +164,11 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
               ))}
             </div>
           </div>
+        )}
+        {response.missing_topics.length > 0 && (
+          <p className="feed-missing-topics">
+            No articles found for: {response.missing_topics.join(', ')}
+          </p>
         )}
 
         {response.overall_summary && (
