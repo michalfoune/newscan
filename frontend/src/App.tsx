@@ -21,7 +21,7 @@ const QUALITY_LABELS: Record<ModelQuality, string> = { fast: 'Fast', standard: '
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, onClose, storageBytes }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, onClose }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
@@ -33,7 +33,6 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
   showKeywords: boolean;
   onShowKeywordsChange: (v: boolean) => void;
   onClose: () => void;
-  storageBytes: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -106,10 +105,6 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
           />
           <span className="settings-checkbox-label">Show used keywords</span>
         </label>
-      </div>
-      <div className="settings-section">
-        <p className="settings-section-label">History storage</p>
-        <p className="settings-storage-size">{(storageBytes / (1024 * 1024)).toFixed(2)} MB</p>
       </div>
       <div className="settings-section">
         <p className="settings-section-label">Content preferences</p>
@@ -188,7 +183,6 @@ export default function App() {
     try { return { ...DEFAULT_COUNTS, ...JSON.parse(localStorage.getItem(COUNTS_KEY) ?? '{}') }; }
     catch { return DEFAULT_COUNTS; }
   });
-  const [storageBytes, setStorageBytes] = useState(() => new Blob([localStorage.getItem(STORAGE_KEY) ?? '']).size);
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const abortRef = useRef<AbortController | null>(null);
 
@@ -222,9 +216,7 @@ export default function App() {
   const t = translations[language];
 
   useEffect(() => {
-    const json = JSON.stringify(conversations);
-    localStorage.setItem(STORAGE_KEY, json);
-    setStorageBytes(new Blob([json]).size);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
   }, [conversations]);
 
   const handleSubmit = async (req: BriefingRequest) => {
@@ -424,7 +416,6 @@ export default function App() {
                   showKeywords={showKeywords}
                   onShowKeywordsChange={handleShowKeywordsChange}
                   onClose={() => setSettingsOpen(false)}
-                  storageBytes={storageBytes}
                 />
               )}
             </div>
