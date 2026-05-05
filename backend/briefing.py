@@ -20,7 +20,7 @@ TOPIC_EXTRACTION_PROMPT = (
     "When the request names two distinct entities or subjects, return a separate topic for each. "
     'Examples: ["Ukraine ceasefire"] | ["Fed interest rates"] | ["Deloitte layoffs", "Meta layoffs"] | ["Gaza conflict"] | ["United States elections"]. '
     "For broad requests (e.g. 'top news today'), return [\"world news\"]. "
-    "Return ONLY valid JSON. Maximum 2 topics."
+    "Return ONLY valid JSON. Do NOT answer the question or explain your reasoning. Maximum 2 topics."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.
