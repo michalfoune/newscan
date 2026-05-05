@@ -159,10 +159,19 @@ export function BriefingFeed({ response, t, mode, generationSeconds }: Props) {
             No articles found for: {response.missing_topics.join(', ')}
           </p>
         )}
-        {response.keyword_trimmed && (
-          <p className="feed-missing-topics">
-            Your search was trimmed due to a free plan limit.
-          </p>
+        {(response.keyword_trimmed || (response.topics && response.topics.length > 0)) && (
+          <div className="feed-trimmed-notice">
+            {response.keyword_trimmed && (
+              <p className="feed-missing-topics">Your search was trimmed due to a free plan limit.</p>
+            )}
+            {response.topics && response.topics.length > 0 && (
+              <div className="feed-topic-tags">
+                {response.topics.map((topic, i) => (
+                  <span key={i} className="feed-topic-tag">{topic}</span>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {response.overall_summary && (

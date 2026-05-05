@@ -14,8 +14,11 @@ TOPIC_EXTRACTION_PROMPT = (
     "Extract the main news topics from the user's request as a JSON array with 1 or 2 elements. "
     "Use 2–3 nouns or proper nouns only per topic — no verbs, adjectives, or question words. "
     "Each term must be something that would literally appear in a news headline. "
+    "CRITICAL: Named entities — country names, city names, organization names, person names — are the most important words in a topic. "
+    "If the query mentions a specific country or region, that name MUST appear verbatim in the extracted topic. Never drop a geographic entity. "
+    "Temporal qualifiers like 'next' or 'upcoming' are secondary — always include the place or subject, not just the time reference. "
     "When the request names two distinct entities or subjects, return a separate topic for each. "
-    'Examples: ["Ukraine ceasefire"] | ["Fed interest rates"] | ["Deloitte layoffs", "Meta layoffs"] | ["Gaza conflict"]. '
+    'Examples: ["Ukraine ceasefire"] | ["Fed interest rates"] | ["Deloitte layoffs", "Meta layoffs"] | ["Gaza conflict"] | ["United States elections"]. '
     "For broad requests (e.g. 'top news today'), return [\"world news\"]. "
     "Return ONLY valid JSON. Maximum 2 topics."
 )
@@ -262,7 +265,7 @@ def generate_briefing_stream(req: BriefingRequest):
     try:
         topics = _extract_topics(req.request, client)
     except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
         return
 
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
@@ -270,11 +273,11 @@ def generate_briefing_stream(req: BriefingRequest):
     try:
         articles = fetch_articles(topics, max_per_topic=FETCH_PER_TOPIC)
     except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed, 'topics': topics})}\n\n"
         return
 
     if not articles:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed})}\n\n"
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': topics, 'keyword_trimmed': keyword_trimmed, 'topics': topics})}\n\n"
         return
 
     topics_with_articles = {a["topic"] for a in articles}
@@ -342,7 +345,7 @@ def generate_briefing_stream(req: BriefingRequest):
         except Exception:
             pass
 
-    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed})}\n\n"
+    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': topics})}\n\n"
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:

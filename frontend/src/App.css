@@ -924,6 +924,35 @@ textarea::placeholder {
   margin: 0;
 }
 
+.feed-trimmed-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.feed-topic-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+}
+
+.feed-topic-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  /* left padding makes room for the 12px arrow + hole area */
+  padding: 0 0.65rem 0 1.3rem;
+  background: rgba(140, 140, 140, 0.28);
+  font-size: 0.73rem;
+  color: #444;
+  letter-spacing: 0.01em;
+  /* arrow shape entirely within the element box — no ::before needed */
+  clip-path: polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%);
+  /* transparent hole at midpoint between tip (0px) and text start (~20px) = 10px */
+  -webkit-mask-image: radial-gradient(circle 3.15px at 10px 50%, transparent 100%, black 100%);
+  mask-image: radial-gradient(circle 3.15px at 10px 50%, transparent 100%, black 100%);
+}
+
 .feed-see-more {
   display: flex;
   align-items: center;

@@ -279,7 +279,7 @@ export default function App() {
                 setConversations(prev => prev.map(c => c.id === cid ? { ...c, response: { ...c.response, items: snap } } : c));
               }
             } else if (eventType === 'done' && dataLine) {
-              const doneData = JSON.parse(dataLine) as { overall_summary?: string; generated_at: string; missing_topics: string[]; keyword_trimmed?: boolean };
+              const doneData = JSON.parse(dataLine) as { overall_summary?: string; generated_at: string; missing_topics: string[]; keyword_trimmed?: boolean; topics?: string[] };
               setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
               setResponse(prev => ({
                 items: prev?.items ?? [],
@@ -287,6 +287,7 @@ export default function App() {
                 generated_at: doneData.generated_at,
                 missing_topics: doneData.missing_topics,
                 keyword_trimmed: doneData.keyword_trimmed,
+                topics: doneData.topics,
               }));
               if (convId) {
                 const cid = convId;
@@ -298,6 +299,7 @@ export default function App() {
                     generated_at: doneData.generated_at,
                     missing_topics: doneData.missing_topics,
                     keyword_trimmed: doneData.keyword_trimmed,
+                    topics: doneData.topics,
                   },
                 } : c));
               }
