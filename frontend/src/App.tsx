@@ -203,7 +203,7 @@ export default function App() {
     catch { return DEFAULT_COUNTS; }
   });
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
-  const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'eventregistry');
+  const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
