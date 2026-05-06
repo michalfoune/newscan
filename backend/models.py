@@ -28,6 +28,7 @@ class BriefingRequest(BaseModel):
     model_quality: str = "fast"  # "fast" | "standard" | "best"
     article_counts: Optional[dict] = None  # {"calm": 2, "balanced": 3, "brave": 4}
     news_source: str = "eventregistry"  # "eventregistry" | "gnews"
+    location: str = "us"  # "us" | "california" | "europe" | "global"
 
 
 class BriefingResponse(BaseModel):
@@ -63,3 +64,4 @@ class ChatStreamRequest(BaseModel):
     model_quality: str = "fast"  # "fast" | "standard" | "best"
     article_counts: Optional[dict] = None
     news_source: str = "eventregistry"  # "eventregistry" | "gnews"
+    location: str = "us"  # "us" | "california" | "europe" | "global"

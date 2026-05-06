@@ -22,12 +22,21 @@ const QUALITY_LABELS: Record<ModelQuality, string> = { fast: 'Fast', standard: '
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
 const NEWS_SOURCES = [{ value: 'eventregistry', label: 'NewsAPI' }, { value: 'gnews', label: 'GNews' }];
+const LOCATION_KEY = 'rizma-location';
+const LOCATIONS = [
+  { value: 'us', label: 'U.S.' },
+  { value: 'california', label: 'Calif.' },
+  { value: 'europe', label: 'EU' },
+  { value: 'global', label: 'Global' },
+];
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, newsSource, onNewsSourceChange, onClose }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, location, onLocationChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, newsSource, onNewsSourceChange, onClose }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
   onLanguageChange: (l: Language) => void;
+  location: string;
+  onLocationChange: (l: string) => void;
   modelQuality: ModelQuality;
   onModelQualityChange: (q: ModelQuality) => void;
   articleCounts: ArticleCounts;
@@ -62,6 +71,21 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
               onClick={() => onLanguageChange(l)}
             >
               {LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="settings-section">
+        <p className="settings-section-label">Location</p>
+        <div className="settings-lang-switcher">
+          {LOCATIONS.map(loc => (
+            <button
+              key={loc.value}
+              type="button"
+              className={`settings-lang-btn${location === loc.value ? ' settings-lang-btn--active' : ''}`}
+              onClick={() => onLocationChange(loc.value)}
+            >
+              {loc.label}
             </button>
           ))}
         </div>
@@ -204,6 +228,7 @@ export default function App() {
   });
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
+  const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -230,6 +255,11 @@ export default function App() {
   const handleNewsSourceChange = (s: string) => {
     setNewsSource(s);
     localStorage.setItem(NEWS_SOURCE_KEY, s);
+  };
+
+  const handleLocationChange = (l: string) => {
+    setLocation(l);
+    localStorage.setItem(LOCATION_KEY, l);
   };
 
   const handleArticleCountChange = (m: Mode, count: number) => {
@@ -260,7 +290,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts, news_source: newsSource }),
+        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts, news_source: newsSource, location }),
         signal: abortRef.current.signal,
       });
       if (!res.ok) {
@@ -438,6 +468,8 @@ export default function App() {
                   onModelQualityChange={handleQualityChange}
                   articleCounts={articleCounts}
                   onArticleCountChange={handleArticleCountChange}
+                  location={location}
+                  onLocationChange={handleLocationChange}
                   showKeywords={showKeywords}
                   onShowKeywordsChange={handleShowKeywordsChange}
                   newsSource={newsSource}
@@ -491,6 +523,7 @@ export default function App() {
                 modelQuality={modelQuality}
                 articleCounts={articleCounts}
                 newsSource={newsSource}
+                location={location}
               />
             </>
           )}

@@ -848,6 +848,7 @@ textarea::placeholder {
 
 .settings-lang-switcher {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
   margin-top: 0.3rem;
 }

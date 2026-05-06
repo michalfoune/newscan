@@ -57,4 +57,5 @@ export interface BriefingRequest {
   model_quality?: ModelQuality;
   article_counts?: ArticleCounts;
   news_source?: string;
+  location?: string;
 }

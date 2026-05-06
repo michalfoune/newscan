@@ -119,13 +119,30 @@ def _strip_fences(raw: str) -> str:
     return raw.strip()
 
 
-def _extract_topic_groups(request: str, client: anthropic.Anthropic) -> list[list[str]]:
+_LOCATION_TOPIC_HINTS: dict = {
+    "us": "The user's preferred geographic focus is the United States. If the query does not name a region, add 'US', 'American', or 'United States' to each topic group.",
+    "california": "The user's preferred geographic focus is California. If the query does not name a region, add 'California' to each topic group.",
+    "europe": "The user's preferred geographic focus is Europe. If the query does not name a region, add 'European' or a specific European country/region to each topic group.",
+    "global": None,
+}
+
+_LOCATION_BRIEF_INSTRUCTIONS: dict = {
+    "us": "Location preference: United States. When the query does not specify a region, prioritize US stories over other regions.",
+    "california": "Location preference: California. When the query does not specify a region, prioritize California and US West Coast stories.",
+    "europe": "Location preference: Europe. When the query does not specify a region, prioritize European stories; the existing US/West default does not apply.",
+    "global": "Location preference: Global. Select the most globally significant stories regardless of region; do not prefer any region over another.",
+}
+
+
+def _extract_topic_groups(request: str, client: anthropic.Anthropic, location: str = "us") -> list[list[str]]:
     """Return topic groups: each group is [primary, variant1, variant2] for the same subject.
     Multiple groups = multiple distinct subjects in the query."""
     from datetime import date
     today = date.today().strftime("%B %d, %Y")
+    loc_hint = _LOCATION_TOPIC_HINTS.get(location)
     system = (
         TOPIC_EXTRACTION_PROMPT
+        + (f" {loc_hint}" if loc_hint else "")
         + f" Today's date is {today} — use this to resolve relative terms like 'next', 'upcoming', or 'recent' correctly. Do NOT append a year to a topic unless the user explicitly stated that year."
     )
     msg = client.messages.create(
@@ -235,10 +252,12 @@ def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: li
     }
     count = _resolve_count(req.mode, req.article_counts)
     mode_instruction = MODE_INSTRUCTION_TEMPLATES.get(req.mode, MODE_INSTRUCTION_TEMPLATES["calm"]).format(count=count)
+    loc_instruction = _LOCATION_BRIEF_INSTRUCTIONS.get(req.location, _LOCATION_BRIEF_INSTRUCTIONS["us"])
     system = (
         BRIEFING_SYSTEM_PROMPT
         + f"\n\n{mode_instruction}"
         + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
+        + f"\n\n{loc_instruction}"
     )
     if req.system_preferences and req.system_preferences.strip():
         system += f"\n\nUser's persistent preferences:\n{req.system_preferences.strip()}"
@@ -276,7 +295,7 @@ def generate_briefing_stream(req: BriefingRequest):
     keyword_trimmed = len(req.request.split()) > 15
 
     try:
-        topic_groups = _extract_topic_groups(req.request, client)
+        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
         return
@@ -286,7 +305,7 @@ def generate_briefing_stream(req: BriefingRequest):
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
 
     try:
-        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source)
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
         return
@@ -368,10 +387,10 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
 
-    topic_groups = _extract_topic_groups(req.request, client)
+    topic_groups = _extract_topic_groups(req.request, client, location=req.location)
     primaries = [g[0] for g in topic_groups]
 
-    articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source)
+    articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
 
     if not articles:
         return BriefingResponse(items=[], generated_at=now_iso, missing_topics=primaries)

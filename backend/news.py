@@ -10,7 +10,10 @@ _cache: dict = {}
 _CACHE_TTL = 300  # 5 minutes
 
 
-def _fetch_gnews_group(group: list[str], max_results: int) -> list[dict]:
+_GNEWS_COUNTRY: dict = {"us": "us", "california": "us"}  # europe/global: omit
+
+
+def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us") -> list[dict]:
     """Fetch articles from GNews for one topic group, trying variants until one returns results."""
     api_key = os.environ.get("GNEWS_API_KEY")
     if not api_key:
@@ -19,11 +22,16 @@ def _fetch_gnews_group(group: list[str], max_results: int) -> list[dict]:
     date_2d = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     date_7d = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    country = _GNEWS_COUNTRY.get(location)
+
     def _run(keyword: str, from_date: str) -> list[dict]:
+        params: dict = {"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": "publishedAt"}
+        if country:
+            params["country"] = country
         try:
             resp = _requests.get(
                 "https://gnews.io/api/v4/search",
-                params={"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": "publishedAt"},
+                params=params,
                 timeout=10,
             )
             resp.raise_for_status()
@@ -64,7 +72,7 @@ def _fetch_gnews_group(group: list[str], max_results: int) -> list[dict]:
     return []
 
 
-def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_source: str = "eventregistry") -> list[dict]:
+def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_source: str = "eventregistry", location: str = "us") -> list[dict]:
     """Fetch recent English-language articles for each topic group, in parallel.
     Each group is [primary, variant1, variant2...] — variants are tried in order until one returns results."""
 
@@ -106,7 +114,7 @@ def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_s
             return cached[1]
 
         if news_source == "gnews":
-            results = _fetch_gnews_group(group, max_per_topic)
+            results = _fetch_gnews_group(group, max_per_topic, location=location)
         else:
             api_key = os.environ.get("NEWS_API_KEY")
             if not api_key:
