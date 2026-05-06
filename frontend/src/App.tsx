@@ -13,6 +13,7 @@ const PREFS_KEY = 'rizma-preferences';
 const QUALITY_KEY = 'rizma-model-quality';
 const COUNTS_KEY = 'rizma-article-counts';
 const SHOW_KEYWORDS_KEY = 'rizma-show-keywords';
+const NEWS_SOURCE_KEY = 'rizma-news-source';
 const DEFAULT_COUNTS: ArticleCounts = { calm: 2, balanced: 3, brave: 4 };
 
 const LANGUAGES: Language[] = ['en', 'cs'];
@@ -20,8 +21,9 @@ const QUALITIES: ModelQuality[] = ['fast', 'standard', 'best'];
 const QUALITY_LABELS: Record<ModelQuality, string> = { fast: 'Fast', standard: 'Standard', best: 'Best' };
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 const LANG_LABELS: Record<Language, string> = { en: 'EN', cs: 'CS' };
+const NEWS_SOURCES = [{ value: 'eventregistry', label: 'NewsAPI' }, { value: 'gnews', label: 'GNews' }];
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, onClose }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, newsSource, onNewsSourceChange, onClose }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
@@ -32,6 +34,8 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
   onArticleCountChange: (mode: Mode, count: number) => void;
   showKeywords: boolean;
   onShowKeywordsChange: (v: boolean) => void;
+  newsSource: string;
+  onNewsSourceChange: (s: string) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -105,6 +109,21 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, modelQua
           />
           <span className="settings-checkbox-label">Show used keywords</span>
         </label>
+      </div>
+      <div className="settings-section">
+        <p className="settings-section-label">News source</p>
+        <div className="settings-lang-switcher">
+          {NEWS_SOURCES.map(s => (
+            <button
+              key={s.value}
+              type="button"
+              className={`settings-lang-btn${newsSource === s.value ? ' settings-lang-btn--active' : ''}`}
+              onClick={() => onNewsSourceChange(s.value)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="settings-section">
         <p className="settings-section-label">Content preferences</p>
@@ -184,6 +203,7 @@ export default function App() {
     catch { return DEFAULT_COUNTS; }
   });
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
+  const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'eventregistry');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -205,6 +225,11 @@ export default function App() {
   const handleShowKeywordsChange = (v: boolean) => {
     setShowKeywords(v);
     localStorage.setItem(SHOW_KEYWORDS_KEY, String(v));
+  };
+
+  const handleNewsSourceChange = (s: string) => {
+    setNewsSource(s);
+    localStorage.setItem(NEWS_SOURCE_KEY, s);
   };
 
   const handleArticleCountChange = (m: Mode, count: number) => {
@@ -235,7 +260,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts }),
+        body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts, news_source: newsSource }),
         signal: abortRef.current.signal,
       });
       if (!res.ok) {
@@ -415,6 +440,8 @@ export default function App() {
                   onArticleCountChange={handleArticleCountChange}
                   showKeywords={showKeywords}
                   onShowKeywordsChange={handleShowKeywordsChange}
+                  newsSource={newsSource}
+                  onNewsSourceChange={handleNewsSourceChange}
                   onClose={() => setSettingsOpen(false)}
                 />
               )}
@@ -463,6 +490,7 @@ export default function App() {
                 systemPreferences={systemPreferences}
                 modelQuality={modelQuality}
                 articleCounts={articleCounts}
+                newsSource={newsSource}
               />
             </>
           )}

@@ -148,9 +148,9 @@ def _classify_v2(context: str, question: str) -> Tuple[str, Optional[str]]:
         return "answer", None
 
 
-def _build_supplemental_context(search_query: str) -> str:
+def _build_supplemental_context(search_query: str, news_source: str = "eventregistry") -> str:
     try:
-        articles = fetch_articles([search_query], max_per_topic=3)
+        articles = fetch_articles([[search_query]], max_per_topic=3, news_source=news_source)
         logger.info(f"[supplemental] fetched {len(articles)} articles for query={search_query!r}")
         if not articles:
             return ""
@@ -273,7 +273,7 @@ def answer_followup_stream(req: ChatStreamRequest):
         supplemental = ""
         if action == "fetch" and query:
             yield f"event: status\ndata: {json.dumps({'stage': 'fetching_articles'})}\n\n"
-            supplemental = _build_supplemental_context(query)
+            supplemental = _build_supplemental_context(query, news_source=req.news_source)
 
         context_block = f"ORIGINAL BRIEFING (user has already read this):\n{req.context}"
         if supplemental:

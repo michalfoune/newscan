@@ -38,6 +38,7 @@ Core principles:
 - Keep summaries concise: 2–3 sentences, high-signal, no filler
 - Respect any balance rules the user sets (e.g. max concerning stories)
 - You will receive more source articles than you need — select only the most relevant ones; ignore articles that are tangentially related or off-topic
+- Use all article types — news reports, opinion pieces, analysis, and editorials are all valid sources; never refuse to generate an item because the source is an opinion or letter
 - If no articles are provided for a requested topic, omit it gracefully
 - Geographic default: when the user's query does not specify a region, prefer stories from the United States, Canada, the United Kingdom, and Western Europe. Include news from other regions only when it has clear global significance or is directly relevant to the user's stated topic
 
@@ -285,7 +286,7 @@ def generate_briefing_stream(req: BriefingRequest):
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
 
     try:
-        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC)
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
         return
@@ -370,7 +371,7 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     topic_groups = _extract_topic_groups(req.request, client)
     primaries = [g[0] for g in topic_groups]
 
-    articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC)
+    articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source)
 
     if not articles:
         return BriefingResponse(items=[], generated_at=now_iso, missing_topics=primaries)

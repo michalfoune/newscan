@@ -87,9 +87,10 @@ interface Props {
   systemPreferences?: string;
   modelQuality?: string;
   articleCounts?: ArticleCounts;
+  newsSource?: string;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences, modelQuality, articleCounts }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences, modelQuality, articleCounts, newsSource }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
@@ -190,6 +191,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           system_preferences: systemPreferences?.trim() || undefined,
           model_quality: modelQuality,
           article_counts: articleCounts,
+          news_source: newsSource,
         }),
         signal: abortRef.current.signal,
       });
