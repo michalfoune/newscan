@@ -23,7 +23,7 @@ def _fetch_gnews_group(group: list[str], max_results: int) -> list[dict]:
         try:
             resp = _requests.get(
                 "https://gnews.io/api/v4/search",
-                params={"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": "publishedAt", "in": "title,description"},
+                params={"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": "publishedAt"},
                 timeout=10,
             )
             resp.raise_for_status()
