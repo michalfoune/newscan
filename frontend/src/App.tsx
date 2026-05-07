@@ -30,6 +30,27 @@ const LOCATIONS = [
   { value: 'global', label: 'Global' },
 ];
 
+function CountInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [raw, setRaw] = useState(String(value));
+  useEffect(() => { setRaw(String(value)); }, [value]);
+  const commit = () => {
+    const n = parseInt(raw, 10);
+    const clamped = isNaN(n) ? value : Math.max(1, Math.min(10, n));
+    setRaw(String(clamped));
+    onChange(clamped);
+  };
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      className="settings-count-input"
+      value={raw}
+      onChange={e => setRaw(e.target.value.replace(/\D/g, ''))}
+      onBlur={commit}
+    />
+  );
+}
+
 function SettingsPopover({ value, onChange, language, onLanguageChange, location, onLocationChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, newsSource, onNewsSourceChange, onClose }: {
   value: string;
   onChange: (v: string) => void;
@@ -111,14 +132,7 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
           {MODES.map(m => (
             <label key={m} className="settings-count-item">
               <span className="settings-count-label">{m.charAt(0).toUpperCase() + m.slice(1)}</span>
-              <input
-                type="number"
-                className="settings-count-input"
-                min={1}
-                max={10}
-                value={articleCounts[m]}
-                onChange={e => onArticleCountChange(m, Number(e.target.value))}
-              />
+              <CountInput value={articleCounts[m]} onChange={v => onArticleCountChange(m, v)} />
             </label>
           ))}
         </div>
