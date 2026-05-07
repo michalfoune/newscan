@@ -22,13 +22,19 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
     if not api_key:
         return []
 
-    date_2d = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    date_7d = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    date_2d  = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    date_7d  = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    date_30d = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     country = _GNEWS_COUNTRY.get(location)
 
-    def _run(keyword: str, from_date: str) -> list[dict]:
-        params: dict = {"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": "publishedAt"}
+    _rate_limited = False
+
+    def _run(keyword: str, from_date: str, sortby: str = "publishedAt") -> list[dict]:
+        nonlocal _rate_limited
+        if _rate_limited:
+            return []
+        params: dict = {"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": sortby}
         if country:
             params["country"] = country
         try:
@@ -37,6 +43,9 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
                 params=params,
                 timeout=10,
             )
+            if resp.status_code in (429, 402):
+                _rate_limited = True
+                return []
             resp.raise_for_status()
             articles = resp.json().get("articles", [])
         except Exception:
@@ -65,15 +74,38 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
                 break
         return results
 
+    ENOUGH = 3  # minimum articles before we stop widening the search window
+
+    collected: list[dict] = []
+    seen_urls: set[str] = set()
+    seen_titles: set[str] = set()
+
+    def _collect(keyword: str, from_date: str, sortby: str = "publishedAt") -> None:
+        for r in _run(keyword, from_date, sortby):
+            title_key = r["title"].lower().strip()
+            if r["url"] not in seen_urls and title_key not in seen_titles:
+                seen_urls.add(r["url"])
+                seen_titles.add(title_key)
+                collected.append(r)
+
     for keyword in group:
-        results = _run(keyword, date_2d)
-        if results:
-            return results
-    for keyword in group:
-        results = _run(keyword, date_7d)
-        if results:
-            return results
-    return []
+        _collect(keyword, date_2d)
+        if len(collected) >= ENOUGH:
+            break
+
+    if len(collected) < ENOUGH:
+        for keyword in group:
+            _collect(keyword, date_7d)
+            if len(collected) >= ENOUGH:
+                break
+
+    if len(collected) < ENOUGH:
+        for keyword in group:
+            _collect(keyword, date_30d, sortby="relevance")
+            if len(collected) >= ENOUGH:
+                break
+
+    return collected[:max_results]
 
 
 def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_source: str = "eventregistry", location: str = "us") -> list[dict]:

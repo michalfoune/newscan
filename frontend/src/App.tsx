@@ -501,9 +501,6 @@ export default function App() {
           {response && response.items.length === 0 && (
             <div className="no-results">
               <p>{t.noResults}</p>
-              {response.keyword_trimmed && (
-                <p style={{ marginTop: '0.4rem' }}>Your search query was trimmed due to a free plan limit.</p>
-              )}
             </div>
           )}
           {response && response.items.length > 0 && (
