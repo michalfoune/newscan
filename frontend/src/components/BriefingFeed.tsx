@@ -42,13 +42,12 @@ function ArticleModal({ item, t, onClose }: { item: BriefingItem; t: Translation
           <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>{t.toneLabels[item.tone]}</span>
           <span className="published-at">{formatPublishedAt(item.published_at, t)}</span>
         </div>
-        <h2 className="modal-headline">{item.headline}</h2>
-        <p className="modal-summary">{item.summary}</p>
-        {item.why_it_matters && (
-          <p className="why-it-matters">
-            <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
-          </p>
-        )}
+        {item.source_title
+          ? <h2 className="modal-headline">{item.source_title}</h2>
+          : <h2 className="modal-headline">{item.headline}</h2>}
+        {item.source_body
+          ? <div className="modal-source-excerpt"><p className="modal-source-excerpt-body">{item.source_body}</p></div>
+          : <p className="modal-summary">{item.summary}</p>}
         <div className="modal-footer">
           {item.source && <span className="modal-source">{item.source}</span>}
           {item.url && (

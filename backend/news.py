@@ -1,10 +1,13 @@
 import os
+import re
 import time
 import requests as _requests
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import Optional
 from eventregistry import EventRegistry, QueryArticlesIter
+
+_BODY_LIMIT = 3000  # chars stored per article; LLM context truncates separately
 
 _cache: dict = {}
 _CACHE_TTL = 300  # 5 minutes
@@ -46,8 +49,9 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
             if not url or url in seen:
                 continue
             seen.add(url)
-            body = (article.get("content") or article.get("description") or "")[:800]
-            body = body.replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
+            raw = article.get("content") or article.get("description") or ""
+            raw = re.sub(r'\s*\[\d+ chars\]\s*$', '', raw)  # strip GNews truncation marker
+            body = raw[:_BODY_LIMIT].replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
             results.append({
                 "topic": keyword,
                 "title": (article.get("title") or "").strip().replace("\\", " ").replace('"', "'"),
@@ -92,7 +96,7 @@ def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_s
                 continue
             seen.add(url)
             raw_body = article.get("body") or ""
-            body = raw_body[:800].replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
+            body = raw_body[:_BODY_LIMIT].replace("\\", " ").replace('"', "'").replace("\r", " ").strip()
             results.append({
                 "topic": keywords or "news",
                 "title": article.get("title", "").strip().replace("\\", " ").replace('"', "'"),

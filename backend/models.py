@@ -18,6 +18,8 @@ class BriefingItem(BaseModel):
     published_at: str
     url: Optional[str] = None
     source: Optional[str] = None
+    source_title: Optional[str] = None
+    source_body: Optional[str] = None
 
 
 class BriefingRequest(BaseModel):

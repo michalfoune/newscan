@@ -54,11 +54,13 @@ Schema:
       "category": "Category label",
       "why_it_matters": "One sentence. Omit if not helpful.",
       "tone": "positive" | "neutral" | "concerning",
+      "source_index": 0,
       "no_articles": false
     }
   ]
 }
 
+source_index: the integer [N] of the Article from the provided numbered list that this brief item primarily draws from. Set it accurately — it is used to link back to the original source article.
 IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
 
 FETCH_PER_TOPIC = 20  # articles fetched per topic; LLM selects the best MODE_ARTICLE_COUNTS[mode] from these
@@ -225,26 +227,35 @@ def _parse_streaming_items(accumulated: str, emitted_count: int) -> tuple[list[d
     return new_items, emitted_count + len(new_items)
 
 
-def _build_article_context(articles: list[dict]) -> str:
+def _build_article_context(articles: list[dict]) -> tuple[str, list[tuple[str, str, str, str, str]]]:
+    """Return (context_string, meta) where meta[i] matches Article [i] in the context string."""
     if not articles:
-        return "No articles were retrieved."
-    lines = []
-    current_topic = None
-    for a in articles:
+        return "No articles were retrieved.", []
+    lines: list[str] = []
+    meta: list[tuple[str, str, str, str, str]] = []
+    current_topic: str | None = None
+    for i, a in enumerate(articles):
         if a["topic"] != current_topic:
             current_topic = a["topic"]
             lines.append(f"\n[Topic: {current_topic}]")
-        lines.append(f"- {a['title']} ({a['source']}, {a['datetime'][:10]})")
+        lines.append(f"[{i}] {a['title']} ({a['source']}, {a['datetime'][:10]})")
         if a["body"]:
-            lines.append(f"  {a['body']}")
-    return "\n".join(lines)
+            lines.append(f"    {a['body'][:800]}")
+        meta.append((
+            a.get("datetime") or "",
+            a.get("url", ""),
+            a.get("source", ""),
+            a.get("title", ""),
+            a.get("body", ""),
+        ))
+    return "\n".join(lines), meta
 
 
 # ---------------------------------------------------------------------------
 # Main entry points
 # ---------------------------------------------------------------------------
 
-def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: list[str]) -> tuple[str, str]:
+def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: list[str]) -> tuple[str, str]:
     """Return (system_prompt, user_message) for the Sonnet briefing call."""
     lang_instruction = {
         "en": "Respond entirely in English (US).",
@@ -262,7 +273,6 @@ def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: li
     if req.system_preferences and req.system_preferences.strip():
         system += f"\n\nUser's persistent preferences:\n{req.system_preferences.strip()}"
 
-    article_context = _build_article_context(articles)
     missing_note = (
         f"\nNote: No articles were found for these topics, do NOT generate items for them: {', '.join(missing_topics)}"
         if missing_topics else ""
@@ -275,15 +285,16 @@ def _build_prompt(req: BriefingRequest, articles: list[dict], missing_topics: li
     return system, user_message
 
 
-def _build_article_meta(articles: list[dict], now_iso: str) -> list[tuple[str, str, str]]:
-    seen: set[str] = set()
-    meta: list[tuple[str, str, str]] = []
-    for a in sorted(articles, key=lambda a: a["datetime"], reverse=True):
-        url = a.get("url", "")
-        if url and url not in seen:
-            seen.add(url)
-            meta.append((a["datetime"] or now_iso, url, a.get("source", "")))
-    return meta
+def _resolve_meta(
+    meta: list[tuple[str, str, str, str, str]],
+    source_index: object,
+    fallback_index: int,
+    now_iso: str,
+) -> tuple[str, str, str, str, str]:
+    if not meta:
+        return now_iso, "", "", "", ""
+    idx = source_index if isinstance(source_index, int) else fallback_index
+    return meta[max(0, min(idx, len(meta) - 1))]
 
 
 def generate_briefing_stream(req: BriefingRequest):
@@ -317,8 +328,8 @@ def generate_briefing_stream(req: BriefingRequest):
     topics_with_articles = {a["topic"] for a in articles}
     missing_topics = [t for t in primaries if t not in topics_with_articles]
 
-    system, user_message = _build_prompt(req, articles, missing_topics)
-    article_meta = _build_article_meta(articles, now_iso)
+    article_context, article_meta = _build_article_context(articles)
+    system, user_message = _build_prompt(req, article_context, missing_topics)
 
     accumulated = ""
     emitted_count = 0
@@ -344,9 +355,8 @@ def generate_briefing_stream(req: BriefingRequest):
                     continue
                 if yielded_items >= max_items:
                     continue
-                published_at, url, source = (
-                    article_meta[current_index % len(article_meta)]
-                    if article_meta else (now_iso, "", "")
+                published_at, url, source, src_title, src_body = _resolve_meta(
+                    article_meta, raw_item.pop("source_index", None), current_index, now_iso
                 )
                 try:
                     item = BriefingItem(
@@ -354,6 +364,8 @@ def generate_briefing_stream(req: BriefingRequest):
                         published_at=published_at,
                         url=url or None,
                         source=source or None,
+                        source_title=src_title or None,
+                        source_body=src_body or None,
                     )
                     yield f"event: item\ndata: {item.model_dump_json()}\n\n"
                     yielded_items += 1
@@ -398,7 +410,8 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     topics_with_articles = {a["topic"] for a in articles}
     missing_topics = [t for t in primaries if t not in topics_with_articles]
 
-    system, user_message = _build_prompt(req, articles, missing_topics)
+    article_context, article_meta = _build_article_context(articles)
+    system, user_message = _build_prompt(req, article_context, missing_topics)
 
     message = client.messages.create(
         model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
@@ -412,8 +425,6 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse briefing response as JSON: {e}") from e
 
-    article_meta = _build_article_meta(articles, now_iso)
-
     max_items = _resolve_count(req.mode, req.article_counts)
     items = []
     for i, raw_item in enumerate(data["items"]):
@@ -421,12 +432,16 @@ def generate_briefing(req: BriefingRequest) -> BriefingResponse:
             break
         if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
             continue
-        published_at, url, source = article_meta[i % len(article_meta)] if article_meta else (now_iso, "", "")
+        published_at, url, source, src_title, src_body = _resolve_meta(
+            article_meta, raw_item.pop("source_index", None), i, now_iso
+        )
         items.append(BriefingItem(
             **raw_item,
             published_at=published_at,
             url=url or None,
             source=source or None,
+            source_title=src_title or None,
+            source_body=src_body or None,
         ))
 
     overall_summary = data.get("overall_summary")

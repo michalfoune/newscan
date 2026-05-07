@@ -9,6 +9,8 @@ export interface BriefingItem {
   published_at: string;
   url?: string;
   source?: string;
+  source_title?: string;
+  source_body?: string;
 }
 
 export interface BriefingResponse {

@@ -1441,6 +1441,26 @@ textarea::placeholder {
   line-height: 1.7;
 }
 
+.modal-source-excerpt {
+  margin-top: 1rem;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.modal-source-excerpt-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.modal-source-excerpt-body {
+  font-size: 0.88rem;
+  color: #555;
+  line-height: 1.7;
+}
+
 .modal-footer {
   display: flex;
   align-items: center;
