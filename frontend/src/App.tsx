@@ -427,6 +427,7 @@ export default function App() {
               }
             } else if (eventType === 'ai_fallback' && dataLine) {
               const fallbackData = JSON.parse(dataLine) as { answer: string; knowledge_cutoff: string };
+              setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
               setResponse(prev => prev ? { ...prev, ai_fallback: fallbackData } : prev);
               if (!convId) {
                 convId = Date.now().toString();
