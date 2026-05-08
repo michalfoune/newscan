@@ -5,6 +5,7 @@ import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
 import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, ThreadItem } from './types';
 import { Language, translations } from './translations';
+import { renderMarkdown } from './utils/markdown';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -29,6 +30,19 @@ const LOCATIONS = [
   { value: 'europe', label: 'EU' },
   { value: 'global', label: 'Global' },
 ];
+
+function AiFallbackCard({ answer, knowledge_cutoff }: { answer: string; knowledge_cutoff: string }) {
+  return (
+    <div className="ai-fallback-card">
+      <div className="ai-fallback-header">
+        <span className="ai-fallback-badge">AI</span>
+        <span className="ai-fallback-label">No recent articles found — answering from AI knowledge</span>
+      </div>
+      <div className="ai-fallback-body">{renderMarkdown(answer)}</div>
+      <p className="ai-fallback-notice">Knowledge cutoff: {knowledge_cutoff}. This response is not based on current news.</p>
+    </div>
+  );
+}
 
 function CountInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [raw, setRaw] = useState(String(value));
@@ -181,6 +195,7 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
 
 function buildChatContext(response: BriefingResponse, thread: ThreadItem[]): string {
   const lines: string[] = [];
+  if (response.ai_fallback) lines.push(`AI Knowledge Response: ${response.ai_fallback.answer}\n`);
   if (response.overall_summary) lines.push(`Overview: ${response.overall_summary}\n`);
   for (const item of response.items) {
     lines.push(`Headline: ${item.headline}`);
@@ -384,6 +399,23 @@ export default function App() {
                   },
                 } : c));
               }
+            } else if (eventType === 'ai_fallback' && dataLine) {
+              const fallbackData = JSON.parse(dataLine) as { answer: string; knowledge_cutoff: string };
+              setResponse(prev => prev ? { ...prev, ai_fallback: fallbackData } : prev);
+              if (!convId) {
+                convId = Date.now().toString();
+                const conv: Conversation = {
+                  id: convId,
+                  query: req.request,
+                  response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], ai_fallback: fallbackData },
+                  thread: [],
+                  mode: req.mode,
+                  language: req.language,
+                  timestamp: Date.now(),
+                };
+                setConversations(prev => [conv, ...prev].slice(0, 50));
+                setActiveId(convId);
+              }
             }
             eventType = '';
             dataLine = '';
@@ -501,7 +533,7 @@ export default function App() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             loading={loading}
-            hasResults={!!response && response.items.length > 0}
+            hasResults={!!response && (response.items.length > 0 || !!response.ai_fallback)}
             t={t}
             language={language}
             mode={mode}
@@ -512,14 +544,19 @@ export default function App() {
             <p className="generating-status">Generating brief… {elapsed}s</p>
           )}
           {error && <div className="error-banner">{error}</div>}
-          {response && response.items.length === 0 && (
+          {response && response.items.length === 0 && !loading && !response.ai_fallback && (
             <div className="no-results">
               <p>{t.noResults}</p>
             </div>
           )}
-          {response && response.items.length > 0 && (
+          {response && (response.items.length > 0 || response.ai_fallback) && (
             <>
-              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
+              {response.items.length > 0 && (
+                <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
+              )}
+              {response.ai_fallback && (
+                <AiFallbackCard answer={response.ai_fallback.answer} knowledge_cutoff={response.ai_fallback.knowledge_cutoff} />
+              )}
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}

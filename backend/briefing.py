@@ -285,6 +285,24 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
     return system, user_message
 
 
+def _ai_fallback_event(client: anthropic.Anthropic, req: BriefingRequest):
+    """Yield an ai_fallback SSE event answering the query from LLM knowledge."""
+    try:
+        msg = client.messages.create(
+            model=QUALITY_MODELS["standard"],
+            max_tokens=600,
+            system=(
+                "You are a knowledgeable assistant. Answer the user's question clearly and concisely from your training knowledge. "
+                "Be factual and direct. Do not mention that you lack access to real-time data — that disclaimer is handled separately by the app."
+            ),
+            messages=[{"role": "user", "content": req.request}],
+        )
+        answer = msg.content[0].text.strip()
+        yield f"event: ai_fallback\ndata: {json.dumps({'answer': answer, 'knowledge_cutoff': 'August 2025'})}\n\n"
+    except Exception:
+        pass
+
+
 def _resolve_meta(
     meta: list[tuple[str, str, str, str, str]],
     source_index: object,
@@ -309,6 +327,7 @@ def generate_briefing_stream(req: BriefingRequest):
         topic_groups = _extract_topic_groups(req.request, client, location=req.location)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
+        yield from _ai_fallback_event(client, req)
         return
 
     primaries = [g[0] for g in topic_groups]
@@ -319,10 +338,12 @@ def generate_briefing_stream(req: BriefingRequest):
         articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+        yield from _ai_fallback_event(client, req)
         return
 
     if not articles:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+        yield from _ai_fallback_event(client, req)
         return
 
     topics_with_articles = {a["topic"] for a in articles}
@@ -392,6 +413,9 @@ def generate_briefing_stream(req: BriefingRequest):
             pass
 
     yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+
+    if yielded_items == 0:
+        yield from _ai_fallback_event(client, req)
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:

@@ -13,6 +13,11 @@ export interface BriefingItem {
   source_body?: string;
 }
 
+export interface AiFallback {
+  answer: string;
+  knowledge_cutoff: string;
+}
+
 export interface BriefingResponse {
   items: BriefingItem[];
   overall_summary?: string;
@@ -20,6 +25,7 @@ export interface BriefingResponse {
   missing_topics: string[];
   keyword_trimmed?: boolean;
   topics?: string[];
+  ai_fallback?: AiFallback;
 }
 
 export interface ChatMessage {

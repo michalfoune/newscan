@@ -1007,6 +1007,56 @@ textarea::placeholder {
 }
 
 /* Overall summary */
+.ai-fallback-card {
+  background: #faf9ff;
+  border: 1px solid #e8e4f5;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+}
+
+.ai-fallback-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.ai-fallback-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #7c6fd4;
+  color: #fff;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+}
+
+.ai-fallback-label {
+  font-size: 0.78rem;
+  color: #7c6fd4;
+  font-weight: 500;
+}
+
+.ai-fallback-body {
+  margin-bottom: 0.75rem;
+}
+
+.ai-fallback-body .chat-md-para,
+.ai-fallback-body .chat-md-list {
+  font-size: 0.95rem;
+  color: #333;
+  line-height: 1.7;
+  margin: 0 0 0.5rem;
+}
+
+.ai-fallback-notice {
+  font-size: 0.78rem;
+  color: #999;
+  font-style: italic;
+}
+
 .overall-summary {
   background: #fff;
   border: 1px solid #e5e3de;
