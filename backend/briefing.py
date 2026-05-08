@@ -285,15 +285,23 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
     return system, user_message
 
 
+_FALLBACK_MODE_INSTRUCTIONS: dict = {
+    "calm": "Use a gentle, reassuring tone. Avoid alarming framing. Present facts clearly without being overwhelming.",
+    "balanced": "Use a measured, balanced tone. Be informative without sensationalism.",
+    "brave": "Be direct and comprehensive. Report facts plainly without softening.",
+}
+
 def _ai_fallback_event(client: anthropic.Anthropic, req: BriefingRequest):
     """Yield an ai_fallback SSE event answering the query from LLM knowledge."""
     try:
+        mode_instruction = _FALLBACK_MODE_INSTRUCTIONS.get(req.mode, _FALLBACK_MODE_INSTRUCTIONS["balanced"])
         msg = client.messages.create(
             model=QUALITY_MODELS["standard"],
             max_tokens=600,
             system=(
                 "You are a knowledgeable assistant. Answer the user's question clearly and concisely from your training knowledge. "
-                "Be factual and direct. Do not mention that you lack access to real-time data — that disclaimer is handled separately by the app."
+                "Do not mention that you lack access to real-time data — that disclaimer is handled separately by the app. "
+                f"{mode_instruction}"
             ),
             messages=[{"role": "user", "content": req.request}],
         )

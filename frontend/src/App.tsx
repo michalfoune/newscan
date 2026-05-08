@@ -4,7 +4,7 @@ import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
 import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, ThreadItem } from './types';
-import { Language, translations } from './translations';
+import { Language, translations, Translations } from './translations';
 import { renderMarkdown } from './utils/markdown';
 import './App.css';
 
@@ -31,16 +31,42 @@ const LOCATIONS = [
   { value: 'global', label: 'Global' },
 ];
 
-function AiFallbackCard({ answer, knowledge_cutoff }: { answer: string; knowledge_cutoff: string }) {
+const MODE_COLORS: Record<string, string> = {
+  calm: '#4838a8',
+  balanced: '#2e7d4f',
+  brave: '#e07040',
+};
+
+function AiFallbackCard({ answer, knowledge_cutoff, mode, generationSeconds, generatedAt, t }: {
+  answer: string;
+  knowledge_cutoff: string;
+  mode: Mode;
+  generationSeconds?: number | null;
+  generatedAt?: string;
+  t: Translations;
+}) {
+  const time = generatedAt
+    ? new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
   return (
-    <div className="ai-fallback-card">
-      <div className="ai-fallback-header">
-        <span className="ai-fallback-badge">AI</span>
-        <span className="ai-fallback-label">No recent articles found — answering from AI knowledge</span>
+    <section className="briefing-feed">
+      <div className="feed-header">
+        <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
+          {t.modeLabels[mode]}
+        </span>
+        <span className="feed-time">
+          {time ? t.generatedAt(time) : ''}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}
+        </span>
       </div>
-      <div className="ai-fallback-body">{renderMarkdown(answer)}</div>
-      <p className="ai-fallback-notice">Knowledge cutoff: {knowledge_cutoff}. This response is not based on current news.</p>
-    </div>
+      <div className="ai-fallback-card">
+        <div className="ai-fallback-header">
+          <span className="ai-fallback-badge">AI</span>
+          <span className="ai-fallback-label">No recent articles found — answering from AI knowledge</span>
+        </div>
+        <div className="ai-fallback-body">{renderMarkdown(answer)}</div>
+        <p className="ai-fallback-notice">Knowledge cutoff: {knowledge_cutoff}. This response is not based on current news.</p>
+      </div>
+    </section>
   );
 }
 
@@ -555,7 +581,7 @@ export default function App() {
                 <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
               )}
               {response.ai_fallback && (
-                <AiFallbackCard answer={response.ai_fallback.answer} knowledge_cutoff={response.ai_fallback.knowledge_cutoff} />
+                <AiFallbackCard answer={response.ai_fallback.answer} knowledge_cutoff={response.ai_fallback.knowledge_cutoff} mode={mode} generationSeconds={generationSeconds} generatedAt={response.generated_at} t={t} />
               )}
               <div className="section-divider" />
               <ChatInterface
