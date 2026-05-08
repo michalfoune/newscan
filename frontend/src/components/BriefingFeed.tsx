@@ -86,17 +86,7 @@ function FeedItem({ item, t, onClick }: { item: BriefingItem; t: Translations; o
           <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
         </p>
       )}
-      {item.url && (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="card-read-original"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {t.readOriginal}
-        </a>
-      )}
+      {item.source && <span className="card-source">{item.source}</span>}
     </article>
   );
 }

@@ -1340,18 +1340,11 @@ textarea::placeholder {
   border-top: 1px solid #f0eeea;
 }
 
-.card-read-original {
-  display: inline-block;
+.card-source {
+  display: block;
   margin-top: 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #7c9a7a;
-  text-decoration: none;
-}
-
-.card-read-original:hover {
-  color: #3d6b3a;
-  text-decoration: underline;
+  font-size: 0.78rem;
+  color: #999;
 }
 
 /* Modal */
