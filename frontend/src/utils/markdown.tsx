@@ -5,12 +5,13 @@ export function renderInline(text: string): React.ReactNode {
   return <>{parts.map((p, i) => i % 2 === 1 ? <strong key={i}>{p}</strong> : p)}</>;
 }
 
-type LineKind = 'empty' | 'hr' | 'bullet' | 'numbered' | 'text';
+type LineKind = 'empty' | 'hr' | 'heading' | 'bullet' | 'numbered' | 'text';
 
 function lineKind(line: string): LineKind {
   const t = line.trim();
   if (!t) return 'empty';
   if (/^-{3,}$/.test(t)) return 'hr';
+  if (/^#{1,6}\s/.test(t)) return 'heading';
   if (/^[-*]\s/.test(t)) return 'bullet';
   if (/^\d+\.\s/.test(t)) return 'numbered';
   return 'text';
@@ -28,6 +29,18 @@ export function renderMarkdown(text: string): React.ReactNode {
 
     if (kind === 'hr') {
       blocks.push(<hr key={k++} className="chat-md-hr" />);
+      i++; continue;
+    }
+
+    if (kind === 'heading') {
+      const t = lines[i].trim();
+      const level = t.match(/^(#{1,6})\s/)?.[1].length ?? 2;
+      const text = t.replace(/^#{1,6}\s+/, '');
+      const cls = level <= 2 ? 'chat-md-h2' : 'chat-md-h3';
+      blocks.push(level <= 2
+        ? <h2 key={k++} className={cls}>{renderInline(text)}</h2>
+        : <h3 key={k++} className={cls}>{renderInline(text)}</h3>
+      );
       i++; continue;
     }
 

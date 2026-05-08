@@ -1044,7 +1044,9 @@ textarea::placeholder {
 }
 
 .ai-fallback-body .chat-md-para,
-.ai-fallback-body .chat-md-list {
+.ai-fallback-body .chat-md-list,
+.ai-fallback-body .chat-md-h2,
+.ai-fallback-body .chat-md-h3 {
   font-size: 0.95rem;
   color: #333;
   line-height: 1.7;
@@ -1231,6 +1233,22 @@ textarea::placeholder {
 .chat-md-list li {
   margin: 0.15em 0;
 }
+.chat-md-h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1rem 0 0.25rem;
+  color: #222;
+}
+
+.chat-md-h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0.85rem 0 0.2rem;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .chat-md-hr {
   border: none;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
