@@ -10,6 +10,14 @@ from news import fetch_articles
 # Prompts
 # ---------------------------------------------------------------------------
 
+CLASSIFY_PROMPT = (
+    "Classify the user's query as either 'news' or 'knowledge'.\n"
+    "'news': the user is asking for recent, latest, breaking, or current events — they want to know what is happening RIGHT NOW.\n"
+    "'knowledge': the user is asking a factual question, seeking an explanation, background, analysis, or status update on a topic — the answer does not depend on today's headlines.\n"
+    "When in doubt, prefer 'knowledge'.\n"
+    "Return ONLY the single word: news or knowledge."
+)
+
 TOPIC_EXTRACTION_PROMPT = (
     "Extract the main news topics from the user's request. "
     "Return a JSON array of topic groups. Each group is an array of 2–3 keyword search strings for the SAME topic, "
@@ -24,7 +32,7 @@ TOPIC_EXTRACTION_PROMPT = (
     '[["Gaza conflict", "Gaza war", "Gaza crisis"]] | [["Fed interest rates", "Federal Reserve rates"]]. '
     "For broad requests (e.g. 'top news today'), return [[\"world news\", \"top stories\"]]. "
     "Never include years (e.g. 2024, 2026) in any search string — not even if the user mentioned a year. Years corrupt keyword search results. "
-    "Return ONLY valid JSON. Do NOT answer the question or explain your reasoning."
+    "Return ONLY valid JSON."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.
@@ -285,30 +293,49 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
     return system, user_message
 
 
-_FALLBACK_MODE_INSTRUCTIONS: dict = {
+_KNOWLEDGE_MODE_INSTRUCTIONS: dict = {
     "calm": "Use a gentle, reassuring tone. Avoid alarming framing. Present facts clearly without being overwhelming.",
     "balanced": "Use a measured, balanced tone. Be informative without sensationalism.",
     "brave": "Be direct and comprehensive. Report facts plainly without softening.",
 }
 
-def _ai_fallback_event(client: anthropic.Anthropic, req: BriefingRequest):
-    """Yield an ai_fallback SSE event answering the query from LLM knowledge."""
+
+def classify_query(request: str, client: anthropic.Anthropic) -> str:
+    """Return 'news' or 'knowledge' for the given user query."""
     try:
-        mode_instruction = _FALLBACK_MODE_INSTRUCTIONS.get(req.mode, _FALLBACK_MODE_INSTRUCTIONS["balanced"])
         msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=5,
+            system=CLASSIFY_PROMPT,
+            messages=[{"role": "user", "content": request}],
+        )
+        result = msg.content[0].text.strip().lower()
+        return "news" if result.startswith("news") else "knowledge"
+    except Exception:
+        return "knowledge"
+
+
+def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
+    """Stream the LLM knowledge answer, yielding k_chunk and k_done SSE events."""
+    mode_instruction = _KNOWLEDGE_MODE_INSTRUCTIONS.get(req.mode, _KNOWLEDGE_MODE_INSTRUCTIONS["balanced"])
+    try:
+        with client.messages.stream(
             model=QUALITY_MODELS["standard"],
-            max_tokens=600,
+            max_tokens=800,
             system=(
                 "You are a knowledgeable assistant. Answer the user's question clearly and concisely from your training knowledge. "
-                "Do not mention that you lack access to real-time data — that disclaimer is handled separately by the app. "
+                "Use markdown formatting: **bold** for key terms, ## for section headings if the answer has multiple sections, "
+                "and bullet lists where appropriate. "
+                "Do not mention that you lack access to real-time data — that disclaimer is shown separately by the app. "
                 f"{mode_instruction}"
             ),
             messages=[{"role": "user", "content": req.request}],
-        )
-        answer = msg.content[0].text.strip()
-        yield f"event: ai_fallback\ndata: {json.dumps({'answer': answer, 'knowledge_cutoff': 'August 2025'})}\n\n"
+        ) as stream:
+            for chunk in stream.text_stream:
+                yield f"event: k_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
+        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': 'August 2025'})}\n\n"
     except Exception:
-        pass
+        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': 'August 2025'})}\n\n"
 
 
 def _resolve_meta(
@@ -323,40 +350,28 @@ def _resolve_meta(
     return meta[max(0, min(idx, len(meta) - 1))]
 
 
-def generate_briefing_stream(req: BriefingRequest):
-    """Generator that yields SSE-formatted strings as items arrive from Sonnet."""
-    client = anthropic.Anthropic()
-    now = datetime.now(timezone.utc)
-    now_iso = now.isoformat()
-
-    keyword_trimmed = len(req.request.split()) > 15
-
+def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
+    """Inner generator for the news path: fetch articles → stream brief items → done."""
     try:
         topic_groups = _extract_topic_groups(req.request, client, location=req.location)
     except Exception:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
-        yield from _ai_fallback_event(client, req)
         return
 
     primaries = [g[0] for g in topic_groups]
-
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
 
     try:
         articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
     except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        yield from _ai_fallback_event(client, req)
-        return
+        articles = []
 
     if not articles:
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        yield from _ai_fallback_event(client, req)
         return
 
     topics_with_articles = {a["topic"] for a in articles}
     missing_topics = [t for t in primaries if t not in topics_with_articles]
-
     article_context, article_meta = _build_article_context(articles)
     system, user_message = _build_prompt(req, article_context, missing_topics)
 
@@ -422,8 +437,89 @@ def generate_briefing_stream(req: BriefingRequest):
 
     yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
-    if yielded_items == 0:
-        yield from _ai_fallback_event(client, req)
+
+def _stream_knowledge_answer(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
+    """Inner generator for the knowledge path: stream LLM answer → fetch related articles → done."""
+    # Stream the knowledge answer immediately
+    yield from _knowledge_stream(client, req)
+
+    # Now fetch potentially related articles as supplemental coverage
+    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+    try:
+        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
+        primaries = [g[0] for g in topic_groups]
+    except Exception:
+        articles = []
+        primaries = []
+
+    if not articles:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+        return
+
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
+    article_context, article_meta = _build_article_context(articles)
+    system, user_message = _build_prompt(req, article_context, missing_topics)
+
+    accumulated = ""
+    emitted_count = 0
+    item_index = 0
+    max_items = _resolve_count(req.mode, req.article_counts)
+    yielded_items = 0
+
+    with client.messages.stream(
+        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
+        max_tokens=1300,
+        system=system,
+        messages=[{"role": "user", "content": user_message}],
+    ) as stream:
+        for chunk in stream.text_stream:
+            if yielded_items >= max_items:
+                continue
+            accumulated += chunk
+            new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
+            for raw_item in new_items:
+                current_index = item_index
+                item_index += 1
+                if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
+                    continue
+                if yielded_items >= max_items:
+                    continue
+                published_at, url, source, src_title, src_body = _resolve_meta(
+                    article_meta, raw_item.pop("source_index", None), current_index, now_iso
+                )
+                try:
+                    item = BriefingItem(
+                        **raw_item,
+                        published_at=published_at,
+                        url=url or None,
+                        source=source or None,
+                        source_title=src_title or None,
+                        source_body=src_body or None,
+                    )
+                    yield f"event: item\ndata: {item.model_dump_json()}\n\n"
+                    yielded_items += 1
+                except Exception:
+                    pass
+
+    yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+
+
+def generate_briefing_stream(req: BriefingRequest):
+    """Generator that yields SSE-formatted strings."""
+    client = anthropic.Anthropic()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    keyword_trimmed = len(req.request.split()) > 15
+
+    query_type = classify_query(req.request, client)
+    yield f"event: query_type\ndata: {json.dumps({'type': query_type})}\n\n"
+
+    if query_type == "knowledge":
+        yield from _stream_knowledge_answer(client, req, now_iso, keyword_trimmed)
+    else:
+        yield from _stream_news_brief(client, req, now_iso, keyword_trimmed)
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:

@@ -101,11 +101,12 @@ interface Props {
   mode: Mode;
   generationSeconds?: number | null;
   showKeywords?: boolean;
+  relatedCoverage?: boolean;
 }
 
 const INITIAL_VISIBLE = 2;
 
-export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true }: Props) {
+export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false }: Props) {
   const [selected, setSelected] = useState<BriefingItem | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -122,12 +123,19 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
       <section className="briefing-feed">
         <div className="feed-header">
           <div className="feed-header-left">
-            <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
-              {t.modeLabels[mode]}
-            </span>
-            <span className="feed-count">{t.stories(response.items.length)}</span>
+            {relatedCoverage
+              ? <span className="feed-related-label">Related coverage</span>
+              : <>
+                  <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
+                    {t.modeLabels[mode]}
+                  </span>
+                  <span className="feed-count">{t.stories(response.items.length)}</span>
+                </>
+            }
           </div>
-          <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
+          {!relatedCoverage && (
+            <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
+          )}
         </div>
 
         {response.overall_summary && (

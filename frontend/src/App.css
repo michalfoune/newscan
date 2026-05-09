@@ -1309,6 +1309,14 @@ textarea::placeholder {
   gap: 0.55rem;
 }
 
+.feed-related-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .feed-mode-badge {
   display: inline-flex;
   align-items: center;
