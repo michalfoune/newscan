@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArticleCounts, BriefingItem, BriefingResponse, Mode, ThreadItem } from '../types';
+import { ArticleCounts, Mode, ThreadItem } from '../types';
 import { Translations } from '../translations';
 import { BriefingFeed } from './BriefingFeed';
 import { renderMarkdown } from '../utils/markdown';
@@ -32,16 +32,12 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-
-  // Streaming pending state
   const [pendingText, setPendingText] = useState('');
-  const [pendingBriefItems, setPendingBriefItems] = useState<BriefingItem[]>([]);
-  const [pendingBriefActive, setPendingBriefActive] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [fetchElapsed, setFetchElapsed] = useState(0);
 
   useEffect(() => {
-    if (statusMsg === 'Getting more info…' || statusMsg === 'Generating brief…') {
+    if (statusMsg === 'Getting more info…') {
       setFetchElapsed(0);
       const id = setInterval(() => setFetchElapsed(s => s + 1), 1000);
       return () => clearInterval(id);
@@ -52,10 +48,8 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const briefStartRef = useRef<number>(0);
-  const stickyScroll = useRef(true); // false when user has scrolled up
+  const stickyScroll = useRef(true);
 
-  // Track whether user has scrolled away from the bottom
   useEffect(() => {
     const onScroll = () => {
       const distFromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
@@ -65,7 +59,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // When user sends, re-enable sticky scroll and jump to bottom
   useEffect(() => {
     if (sending) {
       stickyScroll.current = true;
@@ -73,14 +66,12 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     }
   }, [sending]);
 
-  // While streaming, follow only if sticky
   useEffect(() => {
     if (stickyScroll.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'instant' } as ScrollIntoViewOptions);
     }
-  }, [pendingText, pendingBriefItems.length]);
+  }, [pendingText]);
 
-  // When a finalized item lands, scroll if sticky
   useEffect(() => {
     if (stickyScroll.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -106,8 +97,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     setSending(true);
     setStatusMsg(null);
     setPendingText('');
-    setPendingBriefItems([]);
-    setPendingBriefActive(false);
 
     abortRef.current = new AbortController();
 
@@ -140,8 +129,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
       let eventType = '';
       let dataLine = '';
       let accText = '';
-      let accBriefItems: BriefingItem[] = [];
-      let briefQuery = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -161,64 +148,19 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               const data = JSON.parse(dataLine);
               if (data.stage === 'fetching_articles') {
                 setStatusMsg('Getting more info…');
-                briefStartRef.current = Date.now();
-              } else if (data.stage === 'fetching_brief') {
-                setStatusMsg('Generating brief…');
-                briefStartRef.current = Date.now();
               } else {
                 setStatusMsg(null);
               }
-
             } else if (eventType === 'reply_chunk' && dataLine) {
               const data = JSON.parse(dataLine);
               accText += data.chunk;
               setPendingText(accText);
               setStatusMsg(null);
-
             } else if (eventType === 'reply_done') {
               const assistantItem: ThreadItem = { type: 'message', role: 'assistant', content: accText };
               onThreadChange([...threadWithUser, assistantItem]);
               setPendingText('');
               accText = '';
-
-            } else if (eventType === 'brief_item' && dataLine) {
-              const item = JSON.parse(dataLine) as BriefingItem;
-              accBriefItems = [...accBriefItems, item];
-              setPendingBriefItems(accBriefItems);
-              setPendingBriefActive(true);
-              setStatusMsg(null);
-
-            } else if (eventType === 'brief_done' && dataLine) {
-              const data = JSON.parse(dataLine);
-              briefQuery = data.query || text;
-              const briefSecs = briefStartRef.current ? Math.round((Date.now() - briefStartRef.current) / 1000) : undefined;
-              if (accBriefItems.length === 0) {
-                const noResultsItem: ThreadItem = {
-                  type: 'message',
-                  role: 'assistant',
-                  content: `No recent articles found for "${briefQuery}". Try rephrasing or asking a follow-up question.`,
-                };
-                onThreadChange([...threadWithUser, noResultsItem]);
-              } else {
-                const briefingResponse: BriefingResponse = {
-                  items: accBriefItems,
-                  overall_summary: data.overall_summary,
-                  generated_at: data.generated_at,
-                  missing_topics: data.missing_topics ?? [],
-                };
-                const briefItem: ThreadItem = {
-                  type: 'briefing',
-                  mode: chatMode,
-                  query: briefQuery,
-                  response: briefingResponse,
-                  generationSeconds: briefSecs,
-                };
-                onThreadChange([...threadWithUser, briefItem]);
-              }
-              setPendingBriefItems([]);
-              setPendingBriefActive(false);
-              accBriefItems = [];
-
             } else if (eventType === 'done') {
               setSending(false);
               setStatusMsg(null);
@@ -242,15 +184,13 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
       setSending(false);
       setStatusMsg(null);
       setPendingText('');
-      setPendingBriefItems([]);
-      setPendingBriefActive(false);
       abortRef.current = null;
     }
   };
 
   const cancelSend = () => abortRef.current?.abort();
 
-  const showTypingDots = sending && pendingText === '' && !pendingBriefActive;
+  const showTypingDots = sending && pendingText === '';
 
   return (
     <div className="chat">
@@ -279,7 +219,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                 </div>
               );
             } else {
-              // type === 'briefing'
+              // type === 'briefing' — kept for backward compat with saved conversations
               return (
                 <div key={i} className="thread-brief-wrap">
                   <BriefingFeed response={item.response} t={t} mode={item.mode} generationSeconds={item.generationSeconds ?? null} />
@@ -288,7 +228,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
             }
           })}
 
-          {/* Pending streaming content */}
           {showTypingDots && (
             <div className="chat-msg-wrap chat-msg-wrap--assistant">
               <div className="chat-msg chat-msg--assistant chat-msg--typing">
@@ -303,25 +242,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               <div className="chat-msg chat-msg--assistant">
                 {renderMarkdown(pendingText)}
               </div>
-            </div>
-          )}
-
-          {pendingBriefActive && (
-            <div className="thread-brief-wrap">
-              {statusMsg && pendingBriefItems.length === 0 && (
-                <span className="chat-status-msg">{statusMsg}{fetchElapsed > 0 ? ` ${fetchElapsed}s` : ''}</span>
-              )}
-              {pendingBriefItems.length > 0 && (
-                <BriefingFeed
-                  response={{
-                    items: pendingBriefItems,
-                    generated_at: new Date().toISOString(),
-                    missing_topics: [],
-                  }}
-                  t={t}
-                  mode={chatMode}
-                />
-              )}
             </div>
           )}
 

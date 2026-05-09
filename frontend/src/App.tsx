@@ -37,6 +37,12 @@ const MODE_COLORS: Record<string, string> = {
   brave: '#e07040',
 };
 
+const MODE_BG: Record<string, string> = {
+  calm: '#eae9f5',
+  balanced: '#e7eeea',
+  brave: '#f0eae4',
+};
+
 function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, generationSeconds, generatedAt, t }: {
   answer: string;
   streamingAnswer?: string;
@@ -221,8 +227,9 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
   );
 }
 
-function buildChatContext(response: BriefingResponse, thread: ThreadItem[]): string {
+function buildChatContext(query: string, response: BriefingResponse, thread: ThreadItem[]): string {
   const lines: string[] = [];
+  if (query) lines.push(`User's original question: ${query}\n`);
   if (response.knowledgeAnswer) lines.push(`AI Knowledge Response: ${response.knowledgeAnswer}\n`);
   if (response.overall_summary) lines.push(`Overview: ${response.overall_summary}\n`);
   for (const item of response.items) {
@@ -287,6 +294,7 @@ export default function App() {
   const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
   const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
   const [streamingKnowledge, setStreamingKnowledge] = useState('');
+  const [currentQuery, setCurrentQuery] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -340,6 +348,7 @@ export default function App() {
     setThread([]);
     setGenerationSeconds(null);
     setStreamingKnowledge('');
+    setCurrentQuery(req.request);
     const startTime = Date.now();
 
     let streamingItems: BriefingResponse['items'] = [];
@@ -505,6 +514,7 @@ export default function App() {
     setThread(conv.thread ?? []);
     setMode(conv.mode);
     setLanguage(conv.language as Language);
+    setCurrentQuery(conv.query);
     setError(null);
   };
 
@@ -512,13 +522,14 @@ export default function App() {
     setActiveId(null);
     setResponse(null);
     setThread([]);
+    setCurrentQuery('');
     setError(null);
   };
 
-  const chatContext = response ? buildChatContext(response, thread) : '';
+  const chatContext = response ? buildChatContext(currentQuery, response, thread) : '';
 
   return (
-    <div className="app">
+    <div className="app" style={{ background: MODE_BG[mode] }}>
       <Sidebar
         conversations={conversations}
         activeId={activeId}

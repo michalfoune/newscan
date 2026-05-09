@@ -7,24 +7,21 @@ from news import fetch_articles
 
 logger = logging.getLogger(__name__)
 
-CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant helping users go deeper on a news topic.
+CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant helping users go deeper on a topic.
 
-The user has already read the briefing — assume they are informed and are asking because the brief did not fully answer their question.
+The user has already seen a briefing or AI knowledge response — assume they are informed and asking a follow-up.
 
 How to answer:
-- If FRESH ARTICLES are provided: answer primarily from those; the original briefing is just background
-- If fresh articles don't fully cover the question: fill the gap with your general pre-trained knowledge, clearly framed as context (e.g. "Generally speaking..." or "Based on broader trends...")
-- If no fresh articles are provided: answer from the briefing plus your general knowledge of the topic
-- NEVER say "the briefing doesn't mention" or "this isn't in the context" — the user knows what's in the brief; that's why they're asking
-- Do NOT mention fetching, searching, or any internal mechanics — just answer
-- If you truly cannot answer even with general knowledge, give the most useful adjacent answer you can
+- Answer from the provided context first; fill gaps with your general knowledge where helpful
+- NEVER say "the briefing doesn't mention" or "this isn't in the context" — just answer
+- Do NOT mention fetching, searching, or any internal mechanics
+- If fresh articles are provided, draw on them; if not, use your knowledge
 - Use measured, factual language; no emojis
-- Geographic default: when the topic is not region-specific, prefer US, Canadian, British, and Western European context; include other regions only when globally significant
 
 Format:
-- Target 60–90 words total; only exceed this for genuinely complex multi-part questions
+- Target 60–90 words; only exceed for genuinely complex multi-part questions
 - Prefer 3–5 bullet points over prose when listing facts or comparisons
-- Bold the most important keywords within bullets (e.g. **parental leave**, **10% workforce cut**) — 1–2 bolded terms per bullet at most"""
+- Bold the most important keywords within bullets — 1–2 bolded terms per bullet at most"""
 
 QUALITY_MODELS: dict = {
     "fast": "claude-haiku-4-5-20251001",
@@ -47,88 +44,39 @@ CHAT_MODE_INSTRUCTIONS: dict = {
     "brave": "Tone — BRAVE: Direct, journalistic. Report facts plainly without softening. Still write with humanity — no gratuitous or sensational framing.",
 }
 
-CLASSIFIER_PROMPT = """You are a routing assistant. Given a briefing context and a user question, decide whether the question can be answered SPECIFICALLY AND DIRECTLY from the context alone.
+CHAT_CLASSIFIER_PROMPT = """You are a routing assistant for a news app follow-up chat.
+Given context from a previous response and a user follow-up question, decide:
 
-Return ONLY valid JSON with this shape:
-{"answerable": true/false, "search_query": "concise search terms if not answerable, else null"}
+"answer": Answer from existing context and general LLM knowledge. This is the DEFAULT — use it for:
+- Clarifications about what was already shown
+- Follow-up questions about people, events, concepts — even if not in the context
+- Biographical details, historical facts, definitions, explanations
+- Any question where LLM knowledge is sufficient
+- When in doubt, always choose "answer"
 
-Rules:
-- answerable: true  → the context EXPLICITLY contains the specific information needed
-- answerable: false → the specific detail is absent from the context, OR the user is explicitly asking to look up / find / search for more articles or information
-- When in doubt, prefer answerable: false so fresh articles can be fetched
-- search_query → a short keyword query derived from the conversation topic (e.g. "Lebanon ceasefire Iran war 2026")
+"fetch": Fetch a few fresh news articles to supplement the answer. Use ONLY when ALL of these are true:
+- The user is explicitly asking about recent/latest news or developments
+- The topic is ongoing and news-driven (not historical or biographical)
+- Fresh articles would meaningfully add to what LLM knowledge can provide
 
-Examples:
-- Context covers Iran war broadly, user asks about Lebanon ceasefire → answerable: false, search_query: "Lebanon ceasefire Iran war 2026"
-- User says "can you look up more articles" or "find more info" → answerable: false, search_query: infer from the conversation topic
-- User asks about something explicitly stated in the context → answerable: true"""
-
-CLASSIFIER_PROMPT_V2 = """You are a routing assistant for a news briefing app. Given a summary of covered topics, conversation history, and the latest user message, decide what action to take:
-
-- "answer": The existing briefing explicitly and completely answers the question (e.g. explaining an acronym, clarifying a fact stated in the brief)
-- "fetch": The question is about a topic in the briefing but asks for a detail, development, or angle NOT covered — fetch fresh articles and answer
-- "brief": Generate a new briefing on a different or more specific topic
-
-Return ONLY valid JSON:
-{"action": "answer" | "fetch" | "brief", "query": "derive from USER'S MESSAGE or recent conversation — never from the briefing context"}
-
-CRITICAL RULES:
-- "Give me a brief on X", "Give me news on X", "Give me an update on X", "New brief on X" → ALWAYS "brief", query = X
-- "No, new brief" / "New brief" with no topic → "brief", query = the topic being discussed in recent conversation
-- When action is "brief", the query MUST come from the LATEST MESSAGE ONLY — do not add terms from conversation history or briefing context
-- NEVER use "answer" just because the topic is in the brief — only use "answer" when the specific fact asked is explicitly stated there
-- When in doubt between "answer" and "fetch", ALWAYS prefer "fetch" — never tell the user you don't know when more articles could help
-- Prefer "brief" over "fetch" whenever the user explicitly uses the word "brief", "update", or "news on"
+Return ONLY valid JSON: {"action": "answer" | "fetch", "query": "concise search terms if fetch, else null"}
 
 Examples:
-- "Give me a brief on Tesla" → {"action": "brief", "query": "Tesla news"}
-- "Give me an update on Deloitte layoffs" → {"action": "brief", "query": "Deloitte layoffs"}
-- "No, new brief" after discussing Meta layoffs → {"action": "brief", "query": "Meta layoffs"}
-- "No: new brief on Deloitte and Meta cutting staff" → {"action": "brief", "query": "Deloitte Meta staff cuts"}
-- "What caused this?" about events explicitly described in the briefing → {"action": "answer", "query": null}
-- Brief on Orbán, user asks how the winning party is assembling the government → {"action": "fetch", "query": "Orbán Hungary government formation"}
-- "Tell me more about the ceasefire" when context covers it broadly → {"action": "fetch", "query": "ceasefire latest"}
-- "What else is happening in Ukraine?" → {"action": "fetch", "query": "Ukraine war news"}
-- User asks what an acronym means that any LLM would know → {"action": "answer", "query": null}"""
+- "Amy Winehouse..." after asking about Amy → {"action": "answer", "query": null}
+- "Tell me more about the ceasefire" → {"action": "answer", "query": null}
+- "What caused this?" → {"action": "answer", "query": null}
+- "What's the latest on the Ukraine war?" → {"action": "fetch", "query": "Ukraine war latest"}
+- "Any new developments with the Fed?" → {"action": "fetch", "query": "Federal Reserve interest rates"}"""
 
 
-def _classify(context: str, question: str) -> Tuple[bool, Optional[str]]:
+def _classify(context: str, question: str) -> Tuple[str, Optional[str]]:
     client = anthropic.Anthropic()
-    prompt = (
-        f"Briefing context:\n{context}\n\n"
-        f"User question: {question}\n\n"
-        "Is this answerable from the context?"
-    )
+    prompt = f"Context:\n{context}\n\nUser follow-up: {question}"
     try:
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=128,
-            system=CLASSIFIER_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = msg.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data = json.loads(raw)
-        answerable = bool(data.get("answerable", True))
-        search_query = data.get("search_query")
-        logger.info(f"[classify] answerable={answerable} search_query={search_query!r}")
-        return answerable, search_query
-    except Exception as e:
-        logger.warning(f"[classify] failed ({e}), defaulting to answerable=True")
-        return True, None
-
-
-def _classify_v2(context: str, question: str) -> Tuple[str, Optional[str]]:
-    client = anthropic.Anthropic()
-    prompt = f"Briefing context:\n{context}\n\nConversation:\n{question}"
-    try:
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=128,
-            system=CLASSIFIER_PROMPT_V2,
+            max_tokens=64,
+            system=CHAT_CLASSIFIER_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
         raw = msg.content[0].text.strip()
@@ -138,17 +86,17 @@ def _classify_v2(context: str, question: str) -> Tuple[str, Optional[str]]:
                 raw = raw[4:]
         data = json.loads(raw)
         action = data.get("action", "answer")
-        if action not in ("answer", "fetch", "brief"):
+        if action not in ("answer", "fetch"):
             action = "answer"
         query = data.get("query")
-        logger.info(f"[classify_v2] action={action} query={query!r}")
+        logger.info(f"[chat_classify] action={action} query={query!r}")
         return action, query
     except Exception as e:
-        logger.warning(f"[classify_v2] failed ({e}), defaulting to answer")
+        logger.warning(f"[chat_classify] failed ({e}), defaulting to answer")
         return "answer", None
 
 
-def _build_supplemental_context(search_query: str, news_source: str = "eventregistry", location: str = "us") -> str:
+def _build_supplemental_context(search_query: str, news_source: str = "gnews", location: str = "us") -> str:
     try:
         articles = fetch_articles([[search_query]], max_per_topic=3, news_source=news_source, location=location)
         logger.info(f"[supplemental] fetched {len(articles)} articles for query={search_query!r}")
@@ -166,45 +114,40 @@ def _build_supplemental_context(search_query: str, news_source: str = "eventregi
         return ""
 
 
-def answer_followup(req: ChatRequest) -> ChatResponse:
+def _build_system(req, context_block: str) -> str:
     lang_instruction = {
         "en": "Respond entirely in English (US).",
         "cs": "Respond entirely in Czech (Česky).",
     }
-
-    last_user_msg = next(
-        (m.content for m in reversed(req.messages) if m.role == "user"), ""
-    )
-    recent_history = "\n".join(
-        f"{m.role.upper()}: {m.content}" for m in req.messages[-6:]
-    )
-
-    answerable, search_query = _classify(
-        req.context,
-        f"Recent conversation:\n{recent_history}\n\nLatest question: {last_user_msg}",
-    )
-
-    supplemental = ""
-    if not answerable and search_query:
-        supplemental = _build_supplemental_context(search_query)
-
-    context_block = req.context
-    if supplemental:
-        context_block += f"\n\n---\n{supplemental}"
-
     mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["calm"])
-    system = (
+    return (
         CHAT_SYSTEM
         + f"\n\n{mode_instruction}"
         + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
-        + f"\n\nBriefing context:\n{context_block}"
+        + f"\n\nContext:\n{context_block}"
     )
+
+
+def answer_followup(req: ChatRequest) -> ChatResponse:
+    last_user_msg = next(
+        (m.content for m in reversed(req.messages) if m.role == "user"), ""
+    )
+    short_context = req.context[:700] + ("…" if len(req.context) > 700 else "")
+    action, query = _classify(short_context, last_user_msg)
+
+    supplemental = ""
+    if action == "fetch" and query:
+        supplemental = _build_supplemental_context(query)
+
+    context_block = f"ORIGINAL CONTEXT (user has already seen this):\n{req.context}"
+    if supplemental:
+        context_block += f"\n\nFRESH ARTICLES:\n{supplemental}"
 
     client = anthropic.Anthropic()
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=QUALITY_MODELS.get(getattr(req, "model_quality", "fast"), QUALITY_MODELS["fast"]),
         max_tokens=1024,
-        system=system,
+        system=_build_system(req, context_block),
         messages=[{"role": m.role, "content": m.content} for m in req.messages],
     )
     return ChatResponse(reply=message.content[0].text.strip())
@@ -214,27 +157,16 @@ def answer_followup_stream(req: ChatStreamRequest):
     """SSE generator for streaming chat responses.
 
     Events emitted:
-      status      {"stage": "thinking"|"fetching"}
-      reply_chunk {"chunk": "..."}          — text answer (streamed)
-      reply_done  {}                         — text answer complete
-      brief_item  {BriefingItem}             — new-topic briefing item
-      brief_done  {"overall_summary":..., "generated_at":..., "missing_topics":..., "query":"..."}
-      done        {}                         — entire response complete
+      status      {"stage": "thinking"|"fetching_articles"}
+      reply_chunk {"chunk": "..."}
+      reply_done  {}
+      done        {}
     """
-    from briefing import generate_briefing_stream
-    from models import BriefingRequest
-
     client = anthropic.Anthropic()
-    lang_instruction = {
-        "en": "Respond entirely in English (US).",
-        "cs": "Respond entirely in Czech (Česky).",
-    }
 
     yield f"event: status\ndata: {json.dumps({'stage': 'thinking'})}\n\n"
 
-    # Truncate context to headlines only — full article text confuses the classifier
     short_context = req.context[:700] + ("…" if len(req.context) > 700 else "")
-    # Truncate long assistant messages in history so they don't drown the user's intent
     recent_msgs = req.messages[-6:]
     recent_history = "\n".join(
         f"{m.role.upper()}: {m.content[:250]}{'…' if len(m.content) > 250 else ''}"
@@ -242,63 +174,28 @@ def answer_followup_stream(req: ChatStreamRequest):
     )
     classify_input = f"Latest message: {req.new_message}\n\nRecent conversation:\n{recent_history}"
 
-    action, query = _classify_v2(short_context, classify_input)
+    action, query = _classify(short_context, classify_input)
 
-    if action == "brief":
-        yield f"event: status\ndata: {json.dumps({'stage': 'fetching_brief'})}\n\n"
+    supplemental = ""
+    if action == "fetch" and query:
+        yield f"event: status\ndata: {json.dumps({'stage': 'fetching_articles'})}\n\n"
+        supplemental = _build_supplemental_context(query, news_source=req.news_source, location=req.location)
 
-        brief_req = BriefingRequest(
-            request=query or req.new_message,
-            language=req.language,
-            mode=req.mode,
-            system_preferences=req.system_preferences,
-            model_quality=req.model_quality,
-            article_counts=req.article_counts,
-        )
+    context_block = f"ORIGINAL CONTEXT (user has already seen this):\n{req.context}"
+    if supplemental:
+        context_block += f"\n\nFRESH ARTICLES FETCHED FOR THIS QUESTION:\n{supplemental}"
 
-        for event in generate_briefing_stream(brief_req):
-            if event.startswith("event: status\n"):
-                continue
-            elif event.startswith("event: item\n"):
-                yield event.replace("event: item\n", "event: brief_item\n", 1)
-            elif event.startswith("event: done\n"):
-                data_part = event[len("event: done\ndata: "):].rstrip("\n")
-                done_data = json.loads(data_part)
-                done_data["query"] = query or req.new_message
-                yield f"event: brief_done\ndata: {json.dumps(done_data)}\n\n"
-            else:
-                yield event
+    messages_for_api = [{"role": m.role, "content": m.content} for m in req.messages]
+    messages_for_api.append({"role": "user", "content": req.new_message})
 
-    else:
-        supplemental = ""
-        if action == "fetch" and query:
-            yield f"event: status\ndata: {json.dumps({'stage': 'fetching_articles'})}\n\n"
-            supplemental = _build_supplemental_context(query, news_source=req.news_source, location=req.location)
+    with client.messages.stream(
+        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
+        max_tokens=1024,
+        system=_build_system(req, context_block),
+        messages=messages_for_api,
+    ) as stream:
+        for chunk in stream.text_stream:
+            yield f"event: reply_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
 
-        context_block = f"ORIGINAL BRIEFING (user has already read this):\n{req.context}"
-        if supplemental:
-            context_block += f"\n\nFRESH ARTICLES FETCHED FOR THIS QUESTION:\n{supplemental}"
-
-        mode_instruction = CHAT_MODE_INSTRUCTIONS.get(req.mode, CHAT_MODE_INSTRUCTIONS["calm"])
-        system = (
-            CHAT_SYSTEM
-            + f"\n\n{mode_instruction}"
-            + f"\n\nLanguage: {lang_instruction.get(req.language, lang_instruction['en'])}"
-            + f"\n\nContext:\n{context_block}"
-        )
-
-        messages_for_api = [{"role": m.role, "content": m.content} for m in req.messages]
-        messages_for_api.append({"role": "user", "content": req.new_message})
-
-        with client.messages.stream(
-            model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
-            max_tokens=1024,
-            system=system,
-            messages=messages_for_api,
-        ) as stream:
-            for chunk in stream.text_stream:
-                yield f"event: reply_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
-
-        yield f"event: reply_done\ndata: {{}}\n\n"
-
+    yield f"event: reply_done\ndata: {{}}\n\n"
     yield f"event: done\ndata: {{}}\n\n"
