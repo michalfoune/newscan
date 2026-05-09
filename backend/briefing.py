@@ -404,9 +404,9 @@ def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_is
         messages=[{"role": "user", "content": user_message}],
     ) as stream:
         for chunk in stream.text_stream:
+            accumulated += chunk
             if yielded_items >= max_items:
                 continue
-            accumulated += chunk
             new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
             for raw_item in new_items:
                 current_index = item_index
