@@ -130,6 +130,13 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
           <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
         </div>
 
+        {response.overall_summary && (
+          <div className="overall-summary">
+            <p className="overall-summary-label">{t.overallSummaryLabel}</p>
+            <p className="overall-summary-text">{response.overall_summary}</p>
+          </div>
+        )}
+
         <div className="feed-grid">
           {visibleItems.map((item, i) => (
             <FeedItem key={i} item={item} t={t} onClick={() => setSelected(item)} />
@@ -158,13 +165,6 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
           <p className="feed-missing-topics">
             No articles found for: {response.missing_topics.join(', ')}
           </p>
-        )}
-
-        {response.overall_summary && (
-          <div className="overall-summary">
-            <p className="overall-summary-label">{t.overallSummaryLabel}</p>
-            <p className="overall-summary-text">{response.overall_summary}</p>
-          </div>
         )}
       </section>
 
