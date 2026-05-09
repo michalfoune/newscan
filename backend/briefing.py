@@ -12,24 +12,25 @@ from news import fetch_articles
 
 CLASSIFY_PROMPT = (
     "Classify the user's query as either 'news' or 'knowledge'.\n\n"
-    "'news': anything asking about the current state of affairs, recent developments, trends, what's happening, "
-    "what's new, how something is going right now, or any topic where the answer changes week to week. "
-    "This includes: market conditions, politics, technology trends, sports, climate events, company news, "
-    "geopolitical situations, economic conditions.\n\n"
-    "'knowledge': ONLY for questions where the answer is truly stable and timeless — definitions, historical events "
-    "clearly in the past, how something works mechanically, biographical facts. "
-    "If the topic has a current dimension (even if not explicitly stated), choose 'news'.\n\n"
+    "'news': the answer changes week to week — current state of markets, economy, politics, ongoing conflicts, "
+    "technology landscape, company developments, sports seasons, climate events. Use this whenever the user wants "
+    "to know what is happening or how things stand RIGHT NOW, even if they don't say 'latest' or 'today'.\n\n"
+    "'knowledge': the answer is stable — a specific date or schedule, how something works mechanically, "
+    "a historical event clearly in the past, a definition, or a biographical fact. "
+    "Use this ONLY when the core of the answer does not change from week to week.\n\n"
     "Examples:\n"
-    "- 'What's new in tech?' → news\n"
+    "- 'What political stories matter today?' → news\n"
     "- 'How is the economy doing?' → news\n"
     "- 'What's moving financial markets?' → news\n"
+    "- 'What's new in tech?' → news\n"
     "- 'How is Porsche 718 EV doing?' → news\n"
     "- 'What's happening in Gaza?' → news\n"
     "- 'Top stories today' → news\n"
+    "- 'When will the next Ice Hockey World Championship be held?' → knowledge\n"
+    "- 'When is the next US presidential election?' → knowledge\n"
     "- 'How does quantum computing work?' → knowledge\n"
     "- 'Who was Abraham Lincoln?' → knowledge\n"
     "- 'What caused World War 2?' → knowledge\n\n"
-    "When in doubt, prefer 'news'.\n"
     "Return ONLY the single word: news or knowledge."
 )
 
@@ -152,9 +153,9 @@ _LOCATION_TOPIC_HINTS: dict = {
 }
 
 _LOCATION_BRIEF_INSTRUCTIONS: dict = {
-    "us": "Location preference: United States. When the query does not specify a region, prioritize US stories over other regions.",
-    "california": "Location preference: California. When the query does not specify a region, prioritize California and US West Coast stories.",
-    "europe": "Location preference: Europe. When the query does not specify a region, prioritize European stories; the existing US/West default does not apply.",
+    "us": "Location preference: United States. When the query does not specify a region, strongly prefer stories about the United States or with direct, concrete US impact. Avoid international stories unless they have a clear and specific US dimension (e.g. US policy, US troops, bilateral US relationship). Stories solely about other countries with no US angle should be skipped in favor of US-relevant ones.",
+    "california": "Location preference: California. When the query does not specify a region, strongly prefer California and US West Coast stories; include broader US stories only if no California-relevant stories are available.",
+    "europe": "Location preference: Europe. When the query does not specify a region, strongly prefer stories about European countries or with direct European impact. The US-default does not apply.",
     "global": "Location preference: Global. Select the most globally significant stories regardless of region; do not prefer any region over another.",
 }
 
