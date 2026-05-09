@@ -585,7 +585,7 @@ export default function App() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             loading={loading}
-            hasResults={!!response && (response.items.length > 0 || !!response.knowledgeAnswer || !!streamingKnowledge)}
+            hasResults={!!response && (response.items.length > 0 || !!response.knowledgeAnswer || !!streamingKnowledge || response.queryType === 'knowledge')}
             t={t}
             language={language}
             mode={mode}

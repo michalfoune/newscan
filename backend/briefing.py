@@ -11,10 +11,25 @@ from news import fetch_articles
 # ---------------------------------------------------------------------------
 
 CLASSIFY_PROMPT = (
-    "Classify the user's query as either 'news' or 'knowledge'.\n"
-    "'news': the user is asking for recent, latest, breaking, or current events — they want to know what is happening RIGHT NOW.\n"
-    "'knowledge': the user is asking a factual question, seeking an explanation, background, analysis, or status update on a topic — the answer does not depend on today's headlines.\n"
-    "When in doubt, prefer 'knowledge'.\n"
+    "Classify the user's query as either 'news' or 'knowledge'.\n\n"
+    "'news': anything asking about the current state of affairs, recent developments, trends, what's happening, "
+    "what's new, how something is going right now, or any topic where the answer changes week to week. "
+    "This includes: market conditions, politics, technology trends, sports, climate events, company news, "
+    "geopolitical situations, economic conditions.\n\n"
+    "'knowledge': ONLY for questions where the answer is truly stable and timeless — definitions, historical events "
+    "clearly in the past, how something works mechanically, biographical facts. "
+    "If the topic has a current dimension (even if not explicitly stated), choose 'news'.\n\n"
+    "Examples:\n"
+    "- 'What's new in tech?' → news\n"
+    "- 'How is the economy doing?' → news\n"
+    "- 'What's moving financial markets?' → news\n"
+    "- 'How is Porsche 718 EV doing?' → news\n"
+    "- 'What's happening in Gaza?' → news\n"
+    "- 'Top stories today' → news\n"
+    "- 'How does quantum computing work?' → knowledge\n"
+    "- 'Who was Abraham Lincoln?' → knowledge\n"
+    "- 'What caused World War 2?' → knowledge\n\n"
+    "When in doubt, prefer 'news'.\n"
     "Return ONLY the single word: news or knowledge."
 )
 
