@@ -366,35 +366,26 @@ def _resolve_meta(
     return meta[max(0, min(idx, len(meta) - 1))]
 
 
-def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
-    """Inner generator for the news path: fetch articles → stream brief items → done."""
-    try:
-        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
-    except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
-        return
-
-    primaries = [g[0] for g in topic_groups]
-    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
-
-    try:
-        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
-    except Exception:
-        articles = []
-
-    if not articles:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        return
-
-    topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in primaries if t not in topics_with_articles]
+def _stream_article_section(
+    client: anthropic.Anthropic,
+    req: BriefingRequest,
+    now_iso: str,
+    keyword_trimmed: bool,
+    topic_groups: list,
+    articles: list,
+    missing_topics: list,
+    include_summary: bool = True,
+):
+    """Shared: build context, call LLM, stream item events, emit done.
+    Precondition: articles is non-empty."""
     article_context, article_meta = _build_article_context(articles)
     system, user_message = _build_prompt(req, article_context, missing_topics)
+    primaries = [g[0] for g in topic_groups]
+    max_items = _resolve_count(req.mode, req.article_counts)
 
     accumulated = ""
     emitted_count = 0
     item_index = 0
-    max_items = _resolve_count(req.mode, req.article_counts)
     yielded_items = 0
 
     with client.messages.stream(
@@ -433,33 +424,58 @@ def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_is
                     pass
 
     overall_summary = None
-    try:
-        data = json.loads(_strip_fences(accumulated.strip()))
-        overall_summary = data.get("overall_summary")
-    except json.JSONDecodeError:
-        pass
-
-    if overall_summary and req.language == "cs":
+    if include_summary:
         try:
-            msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system="Translate the following text to Czech. Return only the translated text, nothing else.",
-                messages=[{"role": "user", "content": overall_summary}],
-            )
-            overall_summary = msg.content[0].text.strip()
-        except Exception:
+            data = json.loads(_strip_fences(accumulated.strip()))
+            overall_summary = data.get("overall_summary")
+        except json.JSONDecodeError:
             pass
+        if overall_summary and req.language == "cs":
+            try:
+                msg = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=512,
+                    system="Translate the following text to Czech. Return only the translated text, nothing else.",
+                    messages=[{"role": "user", "content": overall_summary}],
+                )
+                overall_summary = msg.content[0].text.strip()
+            except Exception:
+                pass
 
     yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
 
+def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
+    """News path: fetch articles → stream items → done. Falls back to knowledge if no articles found."""
+    try:
+        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
+    except Exception:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
+        return
+
+    primaries = [g[0] for g in topic_groups]
+    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+
+    try:
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
+    except Exception:
+        articles = []
+
+    if not articles:
+        yield f"event: fallback\ndata: {json.dumps({})}\n\n"
+        yield from _knowledge_stream(client, req)
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+        return
+
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
+    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=True)
+
+
 def _stream_knowledge_answer(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
-    """Inner generator for the knowledge path: stream LLM answer → fetch related articles → done."""
-    # Stream the knowledge answer immediately
+    """Knowledge path: stream LLM answer → fetch related articles → done."""
     yield from _knowledge_stream(client, req)
 
-    # Now fetch potentially related articles as supplemental coverage
     yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
     try:
         topic_groups = _extract_topic_groups(req.request, client, location=req.location)
@@ -475,51 +491,7 @@ def _stream_knowledge_answer(client: anthropic.Anthropic, req: BriefingRequest, 
 
     topics_with_articles = {a["topic"] for a in articles}
     missing_topics = [t for t in primaries if t not in topics_with_articles]
-    article_context, article_meta = _build_article_context(articles)
-    system, user_message = _build_prompt(req, article_context, missing_topics)
-
-    accumulated = ""
-    emitted_count = 0
-    item_index = 0
-    max_items = _resolve_count(req.mode, req.article_counts)
-    yielded_items = 0
-
-    with client.messages.stream(
-        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
-        max_tokens=1300,
-        system=system,
-        messages=[{"role": "user", "content": user_message}],
-    ) as stream:
-        for chunk in stream.text_stream:
-            if yielded_items >= max_items:
-                continue
-            accumulated += chunk
-            new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
-            for raw_item in new_items:
-                current_index = item_index
-                item_index += 1
-                if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
-                    continue
-                if yielded_items >= max_items:
-                    continue
-                published_at, url, source, src_title, src_body = _resolve_meta(
-                    article_meta, raw_item.pop("source_index", None), current_index, now_iso
-                )
-                try:
-                    item = BriefingItem(
-                        **raw_item,
-                        published_at=published_at,
-                        url=url or None,
-                        source=source or None,
-                        source_title=src_title or None,
-                        source_body=src_body or None,
-                    )
-                    yield f"event: item\ndata: {item.model_dump_json()}\n\n"
-                    yielded_items += 1
-                except Exception:
-                    pass
-
-    yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=False)
 
 
 def generate_briefing_stream(req: BriefingRequest):

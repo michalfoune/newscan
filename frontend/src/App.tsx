@@ -406,6 +406,23 @@ export default function App() {
                 setConversations(prev => [conv, ...prev].slice(0, 50));
                 setActiveId(convId);
               }
+            } else if (eventType === 'fallback') {
+              queryType = 'knowledge';
+              setResponse(prev => prev ? { ...prev, queryType: 'knowledge' } : { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' });
+              if (!convId) {
+                convId = Date.now().toString();
+                const conv: Conversation = {
+                  id: convId,
+                  query: req.request,
+                  response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' },
+                  thread: [],
+                  mode: req.mode,
+                  language: req.language,
+                  timestamp: Date.now(),
+                };
+                setConversations(prev => [conv, ...prev].slice(0, 50));
+                setActiveId(convId);
+              }
             } else if (eventType === 'k_chunk' && dataLine) {
               const data = JSON.parse(dataLine) as { chunk: string };
               accKnowledge += data.chunk;
