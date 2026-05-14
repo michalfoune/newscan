@@ -48,7 +48,8 @@ TOPIC_EXTRACTION_PROMPT = (
     '[["Gaza conflict", "Gaza war", "Gaza crisis"]] | [["Fed interest rates", "Federal Reserve rates"]]. '
     "For broad requests (e.g. 'top news today'), return [[\"world news\", \"top stories\"]]. "
     "Never include years (e.g. 2024, 2026) in any search string — not even if the user mentioned a year. Years corrupt keyword search results. "
-    "Return ONLY valid JSON."
+    "Return ONLY valid JSON. "
+    "IMPORTANT: Always return search strings in English, regardless of the language of the user's request."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.
