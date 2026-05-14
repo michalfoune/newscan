@@ -284,7 +284,7 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
     """Return (system_prompt, user_message) for the Sonnet briefing call."""
     lang_instruction = {
         "en": "Respond entirely in English (US).",
-        "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
+        "cs": "Write the headline, summary, category, why_it_matters, and overall_summary fields in Czech (Česky). Article selection and relevance reasoning should be based on the English source articles.",
     }
     count = _resolve_count(req.mode, req.article_counts)
     mode_instruction = MODE_INSTRUCTION_TEMPLATES.get(req.mode, MODE_INSTRUCTION_TEMPLATES["calm"]).format(count=count)
