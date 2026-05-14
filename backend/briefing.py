@@ -331,9 +331,16 @@ def classify_query(request: str, client: anthropic.Anthropic) -> str:
         return "knowledge"
 
 
+_KNOWLEDGE_LANG_INSTRUCTIONS: dict = {
+    "en": "Respond entirely in English (US).",
+    "cs": "Respond entirely in Czech (Česky).",
+}
+
+
 def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
     """Stream the LLM knowledge answer, yielding k_chunk and k_done SSE events."""
     mode_instruction = _KNOWLEDGE_MODE_INSTRUCTIONS.get(req.mode, _KNOWLEDGE_MODE_INSTRUCTIONS["balanced"])
+    lang_instruction = _KNOWLEDGE_LANG_INSTRUCTIONS.get(req.language, _KNOWLEDGE_LANG_INSTRUCTIONS["en"])
     try:
         with client.messages.stream(
             model=QUALITY_MODELS["standard"],
@@ -343,7 +350,8 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
                 "Use markdown formatting: **bold** for key terms, ## for section headings if the answer has multiple sections, "
                 "and bullet lists where appropriate. "
                 "Do not mention that you lack access to real-time data — that disclaimer is shown separately by the app. "
-                f"{mode_instruction}"
+                f"{mode_instruction} "
+                f"{lang_instruction}"
             ),
             messages=[{"role": "user", "content": req.request}],
         ) as stream:
@@ -430,17 +438,6 @@ def _stream_article_section(
             overall_summary = data.get("overall_summary")
         except json.JSONDecodeError:
             pass
-        if overall_summary and req.language == "cs":
-            try:
-                msg = client.messages.create(
-                    model="claude-haiku-4-5-20251001",
-                    max_tokens=512,
-                    system="Translate the following text to Czech. Return only the translated text, nothing else.",
-                    messages=[{"role": "user", "content": overall_summary}],
-                )
-                overall_summary = msg.content[0].text.strip()
-            except Exception:
-                pass
 
     yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
