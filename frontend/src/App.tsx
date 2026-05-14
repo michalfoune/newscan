@@ -3,7 +3,7 @@ import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
-import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, ThreadItem } from './types';
+import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, QueryType, ThreadItem } from './types';
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown } from './utils/markdown';
 import './App.css';
@@ -37,34 +37,42 @@ const MODE_COLORS: Record<string, string> = {
   brave: '#e07040',
 };
 
-function AiFallbackCard({ answer, knowledge_cutoff, mode, generationSeconds, generatedAt, t }: {
+const MODE_BG: Record<string, string> = {
+  calm: '#eae9f5',
+  balanced: '#e7eeea',
+  brave: '#f0eae4',
+};
+
+function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, generationSeconds, generatedAt, t }: {
   answer: string;
-  knowledge_cutoff: string;
+  streamingAnswer?: string;
+  knowledgeCutoff?: string;
   mode: Mode;
   generationSeconds?: number | null;
   generatedAt?: string;
   t: Translations;
 }) {
+  const displayText = streamingAnswer ?? answer;
   const time = generatedAt
     ? new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
   return (
     <section className="briefing-feed">
       <div className="feed-header">
-        <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
-          {t.modeLabels[mode]}
-        </span>
+        <div className="feed-header-left">
+          <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
+            {t.modeLabels[mode]}
+          </span>
+        </div>
         <span className="feed-time">
           {time ? t.generatedAt(time) : ''}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}
         </span>
       </div>
       <div className="ai-fallback-card">
-        <div className="ai-fallback-header">
-          <span className="ai-fallback-badge">AI</span>
-          <span className="ai-fallback-label">No recent articles found — answering from AI knowledge</span>
-        </div>
-        <div className="ai-fallback-body">{renderMarkdown(answer)}</div>
-        <p className="ai-fallback-notice">Knowledge cutoff: {knowledge_cutoff}. This response is not based on current news.</p>
+        <div className="ai-fallback-body">{renderMarkdown(displayText)}</div>
+        {knowledgeCutoff && !streamingAnswer && (
+          <p className="ai-fallback-notice">Knowledge cutoff: {knowledgeCutoff}. This response is not based on current news.</p>
+        )}
       </div>
     </section>
   );
@@ -219,9 +227,10 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
   );
 }
 
-function buildChatContext(response: BriefingResponse, thread: ThreadItem[]): string {
+function buildChatContext(query: string, response: BriefingResponse, thread: ThreadItem[]): string {
   const lines: string[] = [];
-  if (response.ai_fallback) lines.push(`AI Knowledge Response: ${response.ai_fallback.answer}\n`);
+  if (query) lines.push(`User's original question: ${query}\n`);
+  if (response.knowledgeAnswer) lines.push(`AI Knowledge Response: ${response.knowledgeAnswer}\n`);
   if (response.overall_summary) lines.push(`Overview: ${response.overall_summary}\n`);
   for (const item of response.items) {
     lines.push(`Headline: ${item.headline}`);
@@ -284,6 +293,8 @@ export default function App() {
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
   const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
+  const [streamingKnowledge, setStreamingKnowledge] = useState('');
+  const [currentQuery, setCurrentQuery] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -336,10 +347,14 @@ export default function App() {
     setResponse(null);
     setThread([]);
     setGenerationSeconds(null);
+    setStreamingKnowledge('');
+    setCurrentQuery(req.request);
     const startTime = Date.now();
 
     let streamingItems: BriefingResponse['items'] = [];
     let convId: string | null = null;
+    let accKnowledge = '';
+    let queryType: QueryType = 'news';
 
     try {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
@@ -373,7 +388,55 @@ export default function App() {
           } else if (line.startsWith('data: ')) {
             dataLine = line.slice(6);
           } else if (line === '') {
-            if (eventType === 'item' && dataLine) {
+            if (eventType === 'query_type' && dataLine) {
+              const data = JSON.parse(dataLine) as { type: QueryType };
+              queryType = data.type;
+              setResponse({ items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: data.type });
+              if (queryType === 'knowledge') {
+                convId = Date.now().toString();
+                const conv: Conversation = {
+                  id: convId,
+                  query: req.request,
+                  response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' },
+                  thread: [],
+                  mode: req.mode,
+                  language: req.language,
+                  timestamp: Date.now(),
+                };
+                setConversations(prev => [conv, ...prev].slice(0, 50));
+                setActiveId(convId);
+              }
+            } else if (eventType === 'fallback') {
+              queryType = 'knowledge';
+              setResponse(prev => prev ? { ...prev, queryType: 'knowledge' } : { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' });
+              if (!convId) {
+                convId = Date.now().toString();
+                const conv: Conversation = {
+                  id: convId,
+                  query: req.request,
+                  response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' },
+                  thread: [],
+                  mode: req.mode,
+                  language: req.language,
+                  timestamp: Date.now(),
+                };
+                setConversations(prev => [conv, ...prev].slice(0, 50));
+                setActiveId(convId);
+              }
+            } else if (eventType === 'k_chunk' && dataLine) {
+              const data = JSON.parse(dataLine) as { chunk: string };
+              accKnowledge += data.chunk;
+              setStreamingKnowledge(accKnowledge);
+            } else if (eventType === 'k_done' && dataLine) {
+              const data = JSON.parse(dataLine) as { knowledge_cutoff: string };
+              const finalAnswer = accKnowledge;
+              setStreamingKnowledge('');
+              setResponse(prev => prev ? { ...prev, knowledgeAnswer: finalAnswer, knowledgeCutoff: data.knowledge_cutoff } : prev);
+              if (convId) {
+                const cid = convId;
+                setConversations(prev => prev.map(c => c.id === cid ? { ...c, response: { ...c.response, knowledgeAnswer: finalAnswer, knowledgeCutoff: data.knowledge_cutoff } } : c));
+              }
+            } else if (eventType === 'item' && dataLine) {
               const item = JSON.parse(dataLine) as BriefingResponse['items'][0];
               streamingItems = [...streamingItems, item];
               const snap = streamingItems;
@@ -382,8 +445,11 @@ export default function App() {
                 overall_summary: prev?.overall_summary,
                 generated_at: prev?.generated_at ?? new Date().toISOString(),
                 missing_topics: prev?.missing_topics ?? [],
+                queryType: prev?.queryType,
+                knowledgeAnswer: prev?.knowledgeAnswer,
+                knowledgeCutoff: prev?.knowledgeCutoff,
               }));
-              if (snap.length === 1) {
+              if (snap.length === 1 && queryType === 'news') {
                 convId = Date.now().toString();
                 const conv: Conversation = {
                   id: convId,
@@ -410,6 +476,9 @@ export default function App() {
                 missing_topics: doneData.missing_topics,
                 keyword_trimmed: doneData.keyword_trimmed,
                 topics: doneData.topics,
+                queryType: prev?.queryType,
+                knowledgeAnswer: prev?.knowledgeAnswer,
+                knowledgeCutoff: prev?.knowledgeCutoff,
               }));
               if (convId) {
                 const cid = convId;
@@ -424,24 +493,6 @@ export default function App() {
                     topics: doneData.topics,
                   },
                 } : c));
-              }
-            } else if (eventType === 'ai_fallback' && dataLine) {
-              const fallbackData = JSON.parse(dataLine) as { answer: string; knowledge_cutoff: string };
-              setGenerationSeconds(Math.round((Date.now() - startTime) / 1000));
-              setResponse(prev => prev ? { ...prev, ai_fallback: fallbackData } : prev);
-              if (!convId) {
-                convId = Date.now().toString();
-                const conv: Conversation = {
-                  id: convId,
-                  query: req.request,
-                  response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], ai_fallback: fallbackData },
-                  thread: [],
-                  mode: req.mode,
-                  language: req.language,
-                  timestamp: Date.now(),
-                };
-                setConversations(prev => [conv, ...prev].slice(0, 50));
-                setActiveId(convId);
               }
             }
             eventType = '';
@@ -480,6 +531,7 @@ export default function App() {
     setThread(conv.thread ?? []);
     setMode(conv.mode);
     setLanguage(conv.language as Language);
+    setCurrentQuery(conv.query);
     setError(null);
   };
 
@@ -487,13 +539,14 @@ export default function App() {
     setActiveId(null);
     setResponse(null);
     setThread([]);
+    setCurrentQuery('');
     setError(null);
   };
 
-  const chatContext = response ? buildChatContext(response, thread) : '';
+  const chatContext = response ? buildChatContext(currentQuery, response, thread) : '';
 
   return (
-    <div className="app">
+    <div className="app" style={{ background: MODE_BG[mode] }}>
       <Sidebar
         conversations={conversations}
         activeId={activeId}
@@ -560,30 +613,61 @@ export default function App() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             loading={loading}
-            hasResults={!!response && (response.items.length > 0 || !!response.ai_fallback)}
+            hasResults={!!response && (response.items.length > 0 || !!response.knowledgeAnswer || !!streamingKnowledge || response.queryType === 'knowledge')}
             t={t}
             language={language}
             mode={mode}
             onModeChange={setMode}
             initialRequest={activeId ? (conversations.find(c => c.id === activeId)?.query ?? '') : ''}
           />
-          {loading && (!response || response.items.length === 0) && (
-            <p className="generating-status">Generating brief… {elapsed}s</p>
+          {loading && (!response || (response.items.length === 0 && !streamingKnowledge && !response.knowledgeAnswer)) && (
+            <p className="generating-status">Generating… {elapsed}s</p>
           )}
           {error && <div className="error-banner">{error}</div>}
-          {response && response.items.length === 0 && !loading && !response.ai_fallback && (
+          {response && response.items.length === 0 && !loading && !response.knowledgeAnswer && !streamingKnowledge && (
             <div className="no-results">
               <p>{t.noResults}</p>
             </div>
           )}
-          {response && (response.items.length > 0 || response.ai_fallback) && (
+
+          {/* Knowledge path */}
+          {(streamingKnowledge || response?.knowledgeAnswer) && (
             <>
-              {response.items.length > 0 && (
-                <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
+              <KnowledgeAnswer
+                answer={response?.knowledgeAnswer ?? ''}
+                streamingAnswer={streamingKnowledge || undefined}
+                knowledgeCutoff={response?.knowledgeCutoff}
+                mode={mode}
+                generationSeconds={response?.knowledgeAnswer ? generationSeconds : null}
+                generatedAt={response?.generated_at}
+                t={t}
+              />
+              {response && response.items.length > 0 && (
+                <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage />
               )}
-              {response.ai_fallback && (
-                <AiFallbackCard answer={response.ai_fallback.answer} knowledge_cutoff={response.ai_fallback.knowledge_cutoff} mode={mode} generationSeconds={generationSeconds} generatedAt={response.generated_at} t={t} />
-              )}
+              <div className="section-divider" />
+              <ChatInterface
+                key={activeId ?? 'new'}
+                context={chatContext}
+                language={language}
+                t={t}
+                apiUrl={API_URL}
+                initialMode={mode}
+                thread={thread}
+                onThreadChange={handleThreadChange}
+                systemPreferences={systemPreferences}
+                modelQuality={modelQuality}
+                articleCounts={articleCounts}
+                newsSource={newsSource}
+                location={location}
+              />
+            </>
+          )}
+
+          {/* News path */}
+          {response && response.queryType !== 'knowledge' && response.items.length > 0 && (
+            <>
+              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}

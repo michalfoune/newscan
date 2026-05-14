@@ -13,10 +13,7 @@ export interface BriefingItem {
   source_body?: string;
 }
 
-export interface AiFallback {
-  answer: string;
-  knowledge_cutoff: string;
-}
+export type QueryType = 'news' | 'knowledge';
 
 export interface BriefingResponse {
   items: BriefingItem[];
@@ -25,7 +22,9 @@ export interface BriefingResponse {
   missing_topics: string[];
   keyword_trimmed?: boolean;
   topics?: string[];
-  ai_fallback?: AiFallback;
+  queryType?: QueryType;
+  knowledgeAnswer?: string;
+  knowledgeCutoff?: string;
 }
 
 export interface ChatMessage {

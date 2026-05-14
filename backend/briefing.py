@@ -10,6 +10,30 @@ from news import fetch_articles
 # Prompts
 # ---------------------------------------------------------------------------
 
+CLASSIFY_PROMPT = (
+    "Classify the user's query as either 'news' or 'knowledge'.\n\n"
+    "'news': the answer changes week to week — current state of markets, economy, politics, ongoing conflicts, "
+    "technology landscape, company developments, sports seasons, climate events. Use this whenever the user wants "
+    "to know what is happening or how things stand RIGHT NOW, even if they don't say 'latest' or 'today'.\n\n"
+    "'knowledge': the answer is stable — a specific date or schedule, how something works mechanically, "
+    "a historical event clearly in the past, a definition, or a biographical fact. "
+    "Use this ONLY when the core of the answer does not change from week to week.\n\n"
+    "Examples:\n"
+    "- 'What political stories matter today?' → news\n"
+    "- 'How is the economy doing?' → news\n"
+    "- 'What's moving financial markets?' → news\n"
+    "- 'What's new in tech?' → news\n"
+    "- 'How is Porsche 718 EV doing?' → news\n"
+    "- 'What's happening in Gaza?' → news\n"
+    "- 'Top stories today' → news\n"
+    "- 'When will the next Ice Hockey World Championship be held?' → knowledge\n"
+    "- 'When is the next US presidential election?' → knowledge\n"
+    "- 'How does quantum computing work?' → knowledge\n"
+    "- 'Who was Abraham Lincoln?' → knowledge\n"
+    "- 'What caused World War 2?' → knowledge\n\n"
+    "Return ONLY the single word: news or knowledge."
+)
+
 TOPIC_EXTRACTION_PROMPT = (
     "Extract the main news topics from the user's request. "
     "Return a JSON array of topic groups. Each group is an array of 2–3 keyword search strings for the SAME topic, "
@@ -24,7 +48,8 @@ TOPIC_EXTRACTION_PROMPT = (
     '[["Gaza conflict", "Gaza war", "Gaza crisis"]] | [["Fed interest rates", "Federal Reserve rates"]]. '
     "For broad requests (e.g. 'top news today'), return [[\"world news\", \"top stories\"]]. "
     "Never include years (e.g. 2024, 2026) in any search string — not even if the user mentioned a year. Years corrupt keyword search results. "
-    "Return ONLY valid JSON. Do NOT answer the question or explain your reasoning."
+    "Return ONLY valid JSON. "
+    "IMPORTANT: Always return search strings in English, regardless of the language of the user's request."
 )
 
 BRIEFING_SYSTEM_PROMPT = """You are Rizma Brief, an AI that generates personalized, emotionally sustainable news briefings.
@@ -129,9 +154,9 @@ _LOCATION_TOPIC_HINTS: dict = {
 }
 
 _LOCATION_BRIEF_INSTRUCTIONS: dict = {
-    "us": "Location preference: United States. When the query does not specify a region, prioritize US stories over other regions.",
-    "california": "Location preference: California. When the query does not specify a region, prioritize California and US West Coast stories.",
-    "europe": "Location preference: Europe. When the query does not specify a region, prioritize European stories; the existing US/West default does not apply.",
+    "us": "Location preference: United States. When the query does not specify a region, strongly prefer stories about the United States or with direct, concrete US impact. Avoid international stories unless they have a clear and specific US dimension (e.g. US policy, US troops, bilateral US relationship). Stories solely about other countries with no US angle should be skipped in favor of US-relevant ones.",
+    "california": "Location preference: California. When the query does not specify a region, strongly prefer California and US West Coast stories; include broader US stories only if no California-relevant stories are available.",
+    "europe": "Location preference: Europe. When the query does not specify a region, strongly prefer stories about European countries or with direct European impact. The US-default does not apply.",
     "global": "Location preference: Global. Select the most globally significant stories regardless of region; do not prefer any region over another.",
 }
 
@@ -259,7 +284,7 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
     """Return (system_prompt, user_message) for the Sonnet briefing call."""
     lang_instruction = {
         "en": "Respond entirely in English (US).",
-        "cs": "Respond entirely in Czech (Česky). Headlines, summaries, categories, and why_it_matters must all be in fluent Czech.",
+        "cs": "Write the headline, summary, category, why_it_matters, and overall_summary fields in Czech (Česky). Article selection and relevance reasoning should be based on the English source articles.",
     }
     count = _resolve_count(req.mode, req.article_counts)
     mode_instruction = MODE_INSTRUCTION_TEMPLATES.get(req.mode, MODE_INSTRUCTION_TEMPLATES["calm"]).format(count=count)
@@ -285,30 +310,57 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
     return system, user_message
 
 
-_FALLBACK_MODE_INSTRUCTIONS: dict = {
+_KNOWLEDGE_MODE_INSTRUCTIONS: dict = {
     "calm": "Use a gentle, reassuring tone. Avoid alarming framing. Present facts clearly without being overwhelming.",
     "balanced": "Use a measured, balanced tone. Be informative without sensationalism.",
     "brave": "Be direct and comprehensive. Report facts plainly without softening.",
 }
 
-def _ai_fallback_event(client: anthropic.Anthropic, req: BriefingRequest):
-    """Yield an ai_fallback SSE event answering the query from LLM knowledge."""
+
+def classify_query(request: str, client: anthropic.Anthropic) -> str:
+    """Return 'news' or 'knowledge' for the given user query."""
     try:
-        mode_instruction = _FALLBACK_MODE_INSTRUCTIONS.get(req.mode, _FALLBACK_MODE_INSTRUCTIONS["balanced"])
         msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=5,
+            system=CLASSIFY_PROMPT,
+            messages=[{"role": "user", "content": request}],
+        )
+        result = msg.content[0].text.strip().lower()
+        return "news" if result.startswith("news") else "knowledge"
+    except Exception:
+        return "knowledge"
+
+
+_KNOWLEDGE_LANG_INSTRUCTIONS: dict = {
+    "en": "Respond entirely in English (US).",
+    "cs": "Respond entirely in Czech (Česky).",
+}
+
+
+def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
+    """Stream the LLM knowledge answer, yielding k_chunk and k_done SSE events."""
+    mode_instruction = _KNOWLEDGE_MODE_INSTRUCTIONS.get(req.mode, _KNOWLEDGE_MODE_INSTRUCTIONS["balanced"])
+    lang_instruction = _KNOWLEDGE_LANG_INSTRUCTIONS.get(req.language, _KNOWLEDGE_LANG_INSTRUCTIONS["en"])
+    try:
+        with client.messages.stream(
             model=QUALITY_MODELS["standard"],
-            max_tokens=600,
+            max_tokens=800,
             system=(
                 "You are a knowledgeable assistant. Answer the user's question clearly and concisely from your training knowledge. "
-                "Do not mention that you lack access to real-time data — that disclaimer is handled separately by the app. "
-                f"{mode_instruction}"
+                "Use markdown formatting: **bold** for key terms, ## for section headings if the answer has multiple sections, "
+                "and bullet lists where appropriate. "
+                "Do not mention that you lack access to real-time data — that disclaimer is shown separately by the app. "
+                f"{mode_instruction} "
+                f"{lang_instruction}"
             ),
             messages=[{"role": "user", "content": req.request}],
-        )
-        answer = msg.content[0].text.strip()
-        yield f"event: ai_fallback\ndata: {json.dumps({'answer': answer, 'knowledge_cutoff': 'August 2025'})}\n\n"
+        ) as stream:
+            for chunk in stream.text_stream:
+                yield f"event: k_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
+        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': 'August 2025'})}\n\n"
     except Exception:
-        pass
+        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': 'August 2025'})}\n\n"
 
 
 def _resolve_meta(
@@ -323,47 +375,26 @@ def _resolve_meta(
     return meta[max(0, min(idx, len(meta) - 1))]
 
 
-def generate_briefing_stream(req: BriefingRequest):
-    """Generator that yields SSE-formatted strings as items arrive from Sonnet."""
-    client = anthropic.Anthropic()
-    now = datetime.now(timezone.utc)
-    now_iso = now.isoformat()
-
-    keyword_trimmed = len(req.request.split()) > 15
-
-    try:
-        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
-    except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
-        yield from _ai_fallback_event(client, req)
-        return
-
-    primaries = [g[0] for g in topic_groups]
-
-    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
-
-    try:
-        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
-    except Exception:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        yield from _ai_fallback_event(client, req)
-        return
-
-    if not articles:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        yield from _ai_fallback_event(client, req)
-        return
-
-    topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in primaries if t not in topics_with_articles]
-
+def _stream_article_section(
+    client: anthropic.Anthropic,
+    req: BriefingRequest,
+    now_iso: str,
+    keyword_trimmed: bool,
+    topic_groups: list,
+    articles: list,
+    missing_topics: list,
+    include_summary: bool = True,
+):
+    """Shared: build context, call LLM, stream item events, emit done.
+    Precondition: articles is non-empty."""
     article_context, article_meta = _build_article_context(articles)
     system, user_message = _build_prompt(req, article_context, missing_topics)
+    primaries = [g[0] for g in topic_groups]
+    max_items = _resolve_count(req.mode, req.article_counts)
 
     accumulated = ""
     emitted_count = 0
     item_index = 0
-    max_items = _resolve_count(req.mode, req.article_counts)
     yielded_items = 0
 
     with client.messages.stream(
@@ -373,9 +404,9 @@ def generate_briefing_stream(req: BriefingRequest):
         messages=[{"role": "user", "content": user_message}],
     ) as stream:
         for chunk in stream.text_stream:
+            accumulated += chunk
             if yielded_items >= max_items:
                 continue
-            accumulated += chunk
             new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
             for raw_item in new_items:
                 current_index = item_index
@@ -402,28 +433,79 @@ def generate_briefing_stream(req: BriefingRequest):
                     pass
 
     overall_summary = None
-    try:
-        data = json.loads(_strip_fences(accumulated.strip()))
-        overall_summary = data.get("overall_summary")
-    except json.JSONDecodeError:
-        pass
-
-    if overall_summary and req.language == "cs":
+    if include_summary:
         try:
-            msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system="Translate the following text to Czech. Return only the translated text, nothing else.",
-                messages=[{"role": "user", "content": overall_summary}],
-            )
-            overall_summary = msg.content[0].text.strip()
-        except Exception:
+            data = json.loads(_strip_fences(accumulated.strip()))
+            overall_summary = data.get("overall_summary")
+        except json.JSONDecodeError:
             pass
 
     yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
-    if yielded_items == 0:
-        yield from _ai_fallback_event(client, req)
+
+def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
+    """News path: fetch articles → stream items → done. Falls back to knowledge if no articles found."""
+    try:
+        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
+    except Exception:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
+        return
+
+    primaries = [g[0] for g in topic_groups]
+    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+
+    try:
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
+    except Exception:
+        articles = []
+
+    if not articles:
+        yield f"event: fallback\ndata: {json.dumps({})}\n\n"
+        yield from _knowledge_stream(client, req)
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+        return
+
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
+    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=True)
+
+
+def _stream_knowledge_answer(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
+    """Knowledge path: stream LLM answer → fetch related articles → done."""
+    yield from _knowledge_stream(client, req)
+
+    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
+    try:
+        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
+        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
+        primaries = [g[0] for g in topic_groups]
+    except Exception:
+        articles = []
+        primaries = []
+
+    if not articles:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
+        return
+
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
+    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=False)
+
+
+def generate_briefing_stream(req: BriefingRequest):
+    """Generator that yields SSE-formatted strings."""
+    client = anthropic.Anthropic()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    keyword_trimmed = len(req.request.split()) > 15
+
+    query_type = classify_query(req.request, client)
+    yield f"event: query_type\ndata: {json.dumps({'type': query_type})}\n\n"
+
+    if query_type == "knowledge":
+        yield from _stream_knowledge_answer(client, req, now_iso, keyword_trimmed)
+    else:
+        yield from _stream_news_brief(client, req, now_iso, keyword_trimmed)
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:
