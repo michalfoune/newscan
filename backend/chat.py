@@ -30,6 +30,12 @@ QUALITY_MODELS: dict = {
     "best": "claude-opus-4-7",
 }
 
+REASONING_MODELS: dict = {
+    "fast": "claude-sonnet-4-6",
+    "standard": "claude-sonnet-4-6",
+    "best": "claude-opus-4-7",
+}
+
 CHAT_MODE_INSTRUCTIONS: dict = {
     "calm": """Tone — CALM (highly sensitive person / HSP mode):
 - Ease into difficult topics: give context first, then the concerning fact — never lead with alarm
@@ -146,7 +152,7 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
 
     client = anthropic.Anthropic()
     message = client.messages.create(
-        model=QUALITY_MODELS.get(getattr(req, "model_quality", "fast"), QUALITY_MODELS["fast"]),
+        model=REASONING_MODELS.get(getattr(req, "model_quality", "fast"), REASONING_MODELS["fast"]),
         max_tokens=1024,
         system=_build_system(req, context_block),
         messages=[{"role": m.role, "content": m.content} for m in req.messages],
@@ -190,7 +196,7 @@ def answer_followup_stream(req: ChatStreamRequest):
     messages_for_api.append({"role": "user", "content": req.new_message})
 
     with client.messages.stream(
-        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
+        model=REASONING_MODELS.get(req.model_quality, REASONING_MODELS["fast"]),
         max_tokens=1024,
         system=_build_system(req, context_block),
         messages=messages_for_api,
