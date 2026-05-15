@@ -729,6 +729,37 @@ textarea::placeholder {
   gap: 0.4rem;
 }
 
+.settings-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e3de;
+  margin: -0.25rem -1rem 0.75rem;
+  padding: 0 1rem;
+}
+
+.settings-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+
+.settings-tab:hover {
+  color: #444;
+}
+
+.settings-tab--active {
+  color: #1a1a1a;
+  border-bottom-color: #1a1a1a;
+  font-weight: 600;
+}
+
 .settings-popover-title {
   font-size: 0.85rem;
   font-weight: 600;

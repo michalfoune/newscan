@@ -117,6 +117,7 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<'main' | 'advanced'>('main');
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -128,101 +129,122 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
 
   return (
     <div className="settings-popover" ref={ref}>
-      <p className="settings-popover-title">Preferences</p>
-      <div className="settings-section">
-        <p className="settings-section-label">Language</p>
-        <div className="settings-lang-switcher">
-          {LANGUAGES.map(l => (
-            <button
-              key={l}
-              type="button"
-              className={`settings-lang-btn${language === l ? ' settings-lang-btn--active' : ''}`}
-              onClick={() => onLanguageChange(l)}
-            >
-              {LANG_LABELS[l]}
-            </button>
-          ))}
-        </div>
+      <div className="settings-tabs">
+        <button
+          type="button"
+          className={`settings-tab${tab === 'main' ? ' settings-tab--active' : ''}`}
+          onClick={() => setTab('main')}
+        >
+          Preferences
+        </button>
+        <button
+          type="button"
+          className={`settings-tab${tab === 'advanced' ? ' settings-tab--active' : ''}`}
+          onClick={() => setTab('advanced')}
+        >
+          Advanced
+        </button>
       </div>
-      <div className="settings-section">
-        <p className="settings-section-label">Location</p>
-        <div className="settings-lang-switcher">
-          {LOCATIONS.map(loc => (
-            <button
-              key={loc.value}
-              type="button"
-              className={`settings-lang-btn${location === loc.value ? ' settings-lang-btn--active' : ''}`}
-              onClick={() => onLocationChange(loc.value)}
-            >
-              {loc.label}
-            </button>
-          ))}
+
+      {tab === 'main' && <>
+        <div className="settings-section">
+          <p className="settings-section-label">Language</p>
+          <div className="settings-lang-switcher">
+            {LANGUAGES.map(l => (
+              <button
+                key={l}
+                type="button"
+                className={`settings-lang-btn${language === l ? ' settings-lang-btn--active' : ''}`}
+                onClick={() => onLanguageChange(l)}
+              >
+                {LANG_LABELS[l]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="settings-section">
-        <p className="settings-section-label">Quality</p>
-        <div className="settings-lang-switcher">
-          {QUALITIES.map(q => (
-            <button
-              key={q}
-              type="button"
-              className={`settings-lang-btn${modelQuality === q ? ' settings-lang-btn--active' : ''}`}
-              onClick={() => onModelQualityChange(q)}
-            >
-              {QUALITY_LABELS[q]}
-            </button>
-          ))}
+        <div className="settings-section">
+          <p className="settings-section-label">Location</p>
+          <div className="settings-lang-switcher">
+            {LOCATIONS.map(loc => (
+              <button
+                key={loc.value}
+                type="button"
+                className={`settings-lang-btn${location === loc.value ? ' settings-lang-btn--active' : ''}`}
+                onClick={() => onLocationChange(loc.value)}
+              >
+                {loc.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="settings-section">
-        <p className="settings-section-label">Max stories per briefing</p>
-        <div className="settings-counts-row">
-          {MODES.map(m => (
-            <label key={m} className="settings-count-item">
-              <span className="settings-count-label">{m.charAt(0).toUpperCase() + m.slice(1)}</span>
-              <CountInput value={articleCounts[m]} onChange={v => onArticleCountChange(m, v)} />
-            </label>
-          ))}
-        </div>
-      </div>
-      <div className="settings-section">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            className="settings-checkbox"
-            checked={showKeywords}
-            onChange={e => onShowKeywordsChange(e.target.checked)}
+        <div className="settings-section">
+          <p className="settings-section-label">Content preferences</p>
+          <p className="settings-section-hint">Applies to every briefing you generate.</p>
+          <textarea
+            className="settings-prefs-textarea"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder="e.g. Keep summaries short. Avoid political news."
+            rows={4}
+            autoFocus
           />
-          <span className="settings-checkbox-label">Show used keywords</span>
-        </label>
-      </div>
-      <div className="settings-section">
-        <p className="settings-section-label">News source</p>
-        <div className="settings-lang-switcher">
-          {NEWS_SOURCES.map(s => (
-            <button
-              key={s.value}
-              type="button"
-              className={`settings-lang-btn${newsSource === s.value ? ' settings-lang-btn--active' : ''}`}
-              onClick={() => onNewsSourceChange(s.value)}
-            >
-              {s.label}
-            </button>
-          ))}
         </div>
-      </div>
-      <div className="settings-section">
-        <p className="settings-section-label">Content preferences</p>
-        <p className="settings-section-hint">Applies to every briefing you generate.</p>
-        <textarea
-          className="settings-prefs-textarea"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="e.g. Keep summaries short. Avoid political news."
-          rows={4}
-          autoFocus
-        />
-      </div>
+      </>}
+
+      {tab === 'advanced' && <>
+        <div className="settings-section">
+          <p className="settings-section-label">Quality</p>
+          <div className="settings-lang-switcher">
+            {QUALITIES.map(q => (
+              <button
+                key={q}
+                type="button"
+                className={`settings-lang-btn${modelQuality === q ? ' settings-lang-btn--active' : ''}`}
+                onClick={() => onModelQualityChange(q)}
+              >
+                {QUALITY_LABELS[q]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-section">
+          <p className="settings-section-label">News source</p>
+          <div className="settings-lang-switcher">
+            {NEWS_SOURCES.map(s => (
+              <button
+                key={s.value}
+                type="button"
+                className={`settings-lang-btn${newsSource === s.value ? ' settings-lang-btn--active' : ''}`}
+                onClick={() => onNewsSourceChange(s.value)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-section">
+          <p className="settings-section-label">Max stories per briefing</p>
+          <div className="settings-counts-row">
+            {MODES.map(m => (
+              <label key={m} className="settings-count-item">
+                <span className="settings-count-label">{m.charAt(0).toUpperCase() + m.slice(1)}</span>
+                <CountInput value={articleCounts[m]} onChange={v => onArticleCountChange(m, v)} />
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="settings-section">
+          <label className="settings-checkbox-row">
+            <input
+              type="checkbox"
+              className="settings-checkbox"
+              checked={showKeywords}
+              onChange={e => onShowKeywordsChange(e.target.checked)}
+            />
+            <span className="settings-checkbox-label">Show used keywords</span>
+          </label>
+        </div>
+      </>}
     </div>
   );
 }
