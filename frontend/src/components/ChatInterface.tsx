@@ -259,7 +259,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
         </div>
       )}
 
-      <div className="query-box">
+      <div className="query-box" style={{ '--voice-color': MODE_COLORS[chatMode] } as React.CSSProperties}>
         <textarea
           className="chat-query-input"
           value={input}

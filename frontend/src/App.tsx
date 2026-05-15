@@ -317,6 +317,7 @@ export default function App() {
   const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
   const [streamingKnowledge, setStreamingKnowledge] = useState('');
   const [currentQuery, setCurrentQuery] = useState('');
+  const [formKey, setFormKey] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -563,6 +564,7 @@ export default function App() {
     setThread([]);
     setCurrentQuery('');
     setError(null);
+    setFormKey(k => k + 1);
   };
 
   const chatContext = response ? buildChatContext(currentQuery, response, thread) : '';
@@ -631,7 +633,7 @@ export default function App() {
         </header>
         <main className="app-main">
           <BriefingForm
-            key={activeId ?? 'new'}
+            key={activeId ?? `new-${formKey}`}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             loading={loading}

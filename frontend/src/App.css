@@ -1638,7 +1638,7 @@ textarea::placeholder {
 }
 
 .voice-cancel-btn:hover {
-  color: #c0392b;
+  color: #555;
 }
 
 .voice-indicator {
@@ -1671,7 +1671,7 @@ textarea::placeholder {
   display: block;
   width: 3px;
   border-radius: 2px;
-  background: #6c63d9;
+  background: var(--voice-color, #888);
   animation: voice-bar 0.9s ease-in-out infinite;
 }
 
@@ -1690,7 +1690,7 @@ textarea::placeholder {
   width: 14px;
   height: 14px;
   border: 2px solid #ddd;
-  border-top-color: #6c63d9;
+  border-top-color: var(--voice-color, #888);
   border-radius: 50%;
   animation: voice-spin 0.7s linear infinite;
   flex-shrink: 0;

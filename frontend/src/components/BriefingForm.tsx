@@ -84,7 +84,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
 
   return (
     <form onSubmit={handleSubmit} className="briefing-form">
-      <div className="query-box">
+      <div className="query-box" style={{ '--voice-color': MODE_COLORS[mode] } as React.CSSProperties}>
         <textarea
           id="request"
           value={request}
