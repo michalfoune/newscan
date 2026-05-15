@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import openai as openai_lib
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -27,7 +28,6 @@ def health():
 @app.post("/api/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     try:
-        import openai as openai_lib
         content = await audio.read()
         client = openai_lib.OpenAI()
         transcript = client.audio.transcriptions.create(
