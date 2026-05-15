@@ -175,6 +175,7 @@ def _extract_topic_groups(request: str, client: anthropic.Anthropic, location: s
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=384,
+        temperature=0,
         system=system,
         messages=[{"role": "user", "content": request}],
     )
