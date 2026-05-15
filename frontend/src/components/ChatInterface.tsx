@@ -3,6 +3,7 @@ import { ArticleCounts, Mode, ThreadItem } from '../types';
 import { Translations } from '../translations';
 import { BriefingFeed } from './BriefingFeed';
 import { renderMarkdown } from '../utils/markdown';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
@@ -36,6 +37,14 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [pendingText, setPendingText] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [fetchElapsed, setFetchElapsed] = useState(0);
+
+  const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice } = useVoiceInput({
+    apiUrl,
+    onTranscript: (text, autoSubmit) => {
+      setInput(text);
+      if (autoSubmit) send(text);
+    },
+  });
 
   useEffect(() => {
     if (statusMsg === 'Getting more info…') {
@@ -86,8 +95,8 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     });
   };
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || sending) return;
 
     const userItem: ThreadItem = { type: 'message', role: 'user', content: text };
@@ -260,35 +269,80 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           disabled={sending}
           rows={1}
         />
-        <div className="query-box-footer">
-          <div />
-          <div className="query-box-actions">
-            <div className="mode-buttons">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`mode-btn${chatMode === m ? ' mode-btn--active' : ''}`}
-                  style={{ background: MODE_COLORS[m] }}
-                  onClick={() => { setChatMode(m); onModeChange?.(m); }}
-                  disabled={sending}
-                >
-                  {t.modeLabels[m]}
-                </button>
-              ))}
+        {voiceState !== 'idle' ? (
+          <div className="query-box-footer query-box-footer--voice">
+            <button type="button" className="voice-cancel-btn" onClick={cancelVoice} title="Cancel">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><path d="M1 1l9 9M10 1L1 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            </button>
+            <div className="voice-indicator">
+              {voiceState === 'recording' && (
+                <>
+                  <div className="voice-bars"><span/><span/><span/><span/></div>
+                  <span className="voice-label">Listening…</span>
+                </>
+              )}
+              {voiceState === 'processing' && (
+                <>
+                  <div className="voice-spinner" />
+                  <span className="voice-label">Processing…</span>
+                </>
+              )}
+              {voiceState === 'error' && (
+                <span className="voice-error-inline">{voiceError}</span>
+              )}
             </div>
             <button
+              type="button"
               className="query-submit-btn"
-              onClick={sending ? cancelSend : send}
-              disabled={!sending && !input.trim()}
+              onClick={voiceState === 'recording' ? stopRecording : undefined}
+              disabled={voiceState !== 'recording'}
             >
-              {sending
-                ? <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
-                : <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              }
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="query-box-footer">
+            <button
+              type="button"
+              className="mic-btn"
+              onClick={startRecording}
+              disabled={sending}
+              title="Voice input"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <rect x="5.5" y="1" width="5" height="9" rx="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M2.5 8a5.5 5.5 0 0011 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                <line x1="8" y1="14" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <div className="query-box-actions">
+              <div className="mode-buttons">
+                {MODES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`mode-btn${chatMode === m ? ' mode-btn--active' : ''}`}
+                    style={{ background: MODE_COLORS[m] }}
+                    onClick={() => { setChatMode(m); onModeChange?.(m); }}
+                    disabled={sending}
+                  >
+                    {t.modeLabels[m]}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="query-submit-btn"
+                onClick={sending ? cancelSend : () => send()}
+                disabled={!sending && !input.trim()}
+              >
+                {sending
+                  ? <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                }
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

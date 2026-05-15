@@ -1586,3 +1586,116 @@ textarea::placeholder {
 .modal-read-original:hover {
   text-decoration: underline;
 }
+
+/* ── Voice input ─────────────────────────────────────────── */
+.mic-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.mic-btn:hover:not(:disabled) {
+  color: #444;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.mic-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.query-box-footer--voice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.4rem;
+}
+
+.voice-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.voice-cancel-btn:hover {
+  color: #c0392b;
+}
+
+.voice-indicator {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.voice-label {
+  font-size: 0.82rem;
+  color: #777;
+}
+
+.voice-error-inline {
+  font-size: 0.8rem;
+  color: #c0392b;
+}
+
+/* Animated waveform bars */
+.voice-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+
+.voice-bars span {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: #6c63d9;
+  animation: voice-bar 0.9s ease-in-out infinite;
+}
+
+.voice-bars span:nth-child(1) { animation-delay: 0s;    height: 6px; }
+.voice-bars span:nth-child(2) { animation-delay: 0.15s; height: 12px; }
+.voice-bars span:nth-child(3) { animation-delay: 0.3s;  height: 18px; }
+.voice-bars span:nth-child(4) { animation-delay: 0.15s; height: 10px; }
+
+@keyframes voice-bar {
+  0%, 100% { transform: scaleY(0.4); opacity: 0.6; }
+  50%       { transform: scaleY(1);   opacity: 1; }
+}
+
+/* Processing spinner */
+.voice-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ddd;
+  border-top-color: #6c63d9;
+  border-radius: 50%;
+  animation: voice-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes voice-spin {
+  to { transform: rotate(360deg); }
+}

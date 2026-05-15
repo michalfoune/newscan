@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
@@ -12,6 +13,7 @@ interface Props {
   mode: Mode;
   onModeChange: (m: Mode) => void;
   initialRequest?: string;
+  apiUrl: string;
 }
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
@@ -22,19 +24,31 @@ const MODE_COLORS: Record<Mode, string> = {
   brave: '#e07040',
 };
 
-export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange, initialRequest = '' }: Props) {
+export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange, initialRequest = '', apiUrl }: Props) {
   const [request, setRequest] = useState(initialRequest);
   const [submittedRequest, setSubmittedRequest] = useState(initialRequest);
   const [collapsed, setCollapsed] = useState(hasResults);
   const [copied, setCopied] = useState(false);
 
+  const submitRequest = (text: string) => {
+    setSubmittedRequest(text);
+    setCollapsed(true);
+    onSubmit({ request: text, language, mode });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!request.trim()) return;
-    setSubmittedRequest(request.trim());
-    setCollapsed(true);
-    onSubmit({ request: request.trim(), language, mode });
+    submitRequest(request.trim());
   };
+
+  const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice } = useVoiceInput({
+    apiUrl,
+    onTranscript: (text, autoSubmit) => {
+      setRequest(text);
+      if (autoSubmit) submitRequest(text);
+    },
+  });
 
   const handleCategory = (index: number) => {
     setRequest(t.categoryPrompts[index]);
@@ -86,34 +100,79 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
           disabled={loading}
         />
 
-        <div className="query-box-footer">
-          <div />
-          <div className="query-box-actions">
-            <div className="mode-buttons">
-              {MODES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`mode-btn${mode === m ? ' mode-btn--active' : ''}`}
-                  style={{ background: MODE_COLORS[m] }}
-                  onClick={() => onModeChange(m)}
-                  disabled={loading}
-                >
-                  {t.modeLabels[m]}
-                </button>
-              ))}
+        {voiceState !== 'idle' ? (
+          <div className="query-box-footer query-box-footer--voice">
+            <button type="button" className="voice-cancel-btn" onClick={cancelVoice} title="Cancel">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><path d="M1 1l9 9M10 1L1 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            </button>
+            <div className="voice-indicator">
+              {voiceState === 'recording' && (
+                <>
+                  <div className="voice-bars"><span/><span/><span/><span/></div>
+                  <span className="voice-label">Listening…</span>
+                </>
+              )}
+              {voiceState === 'processing' && (
+                <>
+                  <div className="voice-spinner" />
+                  <span className="voice-label">Processing…</span>
+                </>
+              )}
+              {voiceState === 'error' && (
+                <span className="voice-error-inline">{voiceError}</span>
+              )}
             </div>
-            {loading ? (
-              <button type="button" className="query-submit-btn query-submit-btn--stop" onClick={onCancel}>
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
-              </button>
-            ) : (
-              <button type="submit" className="query-submit-btn" disabled={!request.trim()}>
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-            )}
+            <button
+              type="button"
+              className="query-submit-btn"
+              onClick={voiceState === 'recording' ? stopRecording : undefined}
+              disabled={voiceState !== 'recording'}
+            >
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="query-box-footer">
+            <button
+              type="button"
+              className="mic-btn"
+              onClick={startRecording}
+              disabled={loading}
+              title="Voice input"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <rect x="5.5" y="1" width="5" height="9" rx="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M2.5 8a5.5 5.5 0 0011 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                <line x1="8" y1="14" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <div className="query-box-actions">
+              <div className="mode-buttons">
+                {MODES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`mode-btn${mode === m ? ' mode-btn--active' : ''}`}
+                    style={{ background: MODE_COLORS[m] }}
+                    onClick={() => onModeChange(m)}
+                    disabled={loading}
+                  >
+                    {t.modeLabels[m]}
+                  </button>
+                ))}
+              </div>
+              {loading ? (
+                <button type="button" className="query-submit-btn query-submit-btn--stop" onClick={onCancel}>
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
+                </button>
+              ) : (
+                <button type="submit" className="query-submit-btn" disabled={!request.trim()}>
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="category-pills">

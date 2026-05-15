@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+import openai as openai_lib
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse, ChatStreamRequest
@@ -22,6 +23,20 @@ app.add_middleware(
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/api/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    try:
+        content = await audio.read()
+        client = openai_lib.OpenAI()
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(audio.filename or "recording.webm", content, audio.content_type or "audio/webm"),
+        )
+        return {"text": transcript.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/briefing", response_model=BriefingResponse)

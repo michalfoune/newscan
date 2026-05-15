@@ -641,6 +641,7 @@ export default function App() {
             mode={mode}
             onModeChange={setMode}
             initialRequest={activeId ? (conversations.find(c => c.id === activeId)?.query ?? '') : ''}
+            apiUrl={API_URL}
           />
           {loading && (!response || (response.items.length === 0 && !streamingKnowledge && !response.knowledgeAnswer)) && (
             <p className="generating-status">Generating… {elapsed}s</p>
