@@ -1367,6 +1367,7 @@ textarea::placeholder {
 
 /* Feed items */
 .feed-item {
+  display: block;
   background: #fff;
   border: 1px solid #e5e3de;
   border-radius: 10px;
@@ -1374,6 +1375,8 @@ textarea::placeholder {
   border-left-width: 4px;
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.1s;
+  text-decoration: none;
+  color: inherit;
 }
 
 .feed-item:hover {
@@ -1448,144 +1451,29 @@ textarea::placeholder {
   border-top: 1px solid #f0eeea;
 }
 
-.card-source {
-  display: block;
+.feed-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 0.75rem;
+}
+
+.card-source {
   font-size: 0.78rem;
   color: #999;
 }
 
-/* Modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 1.5rem;
-  backdrop-filter: blur(2px);
+.feed-item-read-link {
+  font-size: 0.75rem;
+  color: #ccc;
+  flex-shrink: 0;
+  transition: color 0.15s;
 }
 
-.modal-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 2rem;
-  max-width: 620px;
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+.feed-item:hover .feed-item-read-link {
+  color: #888;
 }
 
-.modal-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  font-size: 1.4rem;
-  color: #aaa;
-  cursor: pointer;
-  line-height: 1;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-}
-
-.modal-close:hover {
-  color: #555;
-  background: #f0eeea;
-}
-
-.modal-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.875rem;
-}
-
-.modal-headline {
-  font-size: 1.2rem;
-  font-weight: 700;
-  line-height: 1.4;
-  color: #1a1a1a;
-  margin-bottom: 0.875rem;
-}
-
-.modal-summary {
-  font-size: 0.95rem;
-  color: #333;
-  line-height: 1.7;
-}
-
-.modal-excerpt {
-  margin-top: 1.25rem;
-  padding: 1rem;
-  background: #f7f6f3;
-  border-radius: 8px;
-}
-
-.modal-excerpt-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #aaa;
-  margin-bottom: 0.5rem;
-}
-
-.modal-excerpt-text {
-  font-size: 0.875rem;
-  color: #555;
-  line-height: 1.7;
-}
-
-.modal-source-excerpt {
-  margin-top: 1rem;
-  max-height: 340px;
-  overflow-y: auto;
-}
-
-.modal-source-excerpt-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #444;
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
-}
-
-.modal-source-excerpt-body {
-  font-size: 0.88rem;
-  color: #555;
-  line-height: 1.7;
-}
-
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f0eeea;
-}
-
-.modal-source {
-  font-size: 0.8rem;
-  color: #999;
-}
-
-.modal-read-original {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #3d6b3a;
-  text-decoration: none;
-}
-
-.modal-read-original:hover {
-  text-decoration: underline;
-}
 
 /* ── Voice input ─────────────────────────────────────────── */
 .mic-btn {

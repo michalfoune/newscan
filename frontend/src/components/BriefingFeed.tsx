@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
 
@@ -23,57 +23,12 @@ function formatPublishedAt(iso: string, t: Translations): string {
 }
 
 // ---------------------------------------------------------------------------
-// Modal
-// ---------------------------------------------------------------------------
-
-function ArticleModal({ item, t, onClose }: { item: BriefingItem; t: Translations; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
-        <div className="modal-meta">
-          <span className="category">{item.category}</span>
-          <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>{t.toneLabels[item.tone]}</span>
-          <span className="published-at">{formatPublishedAt(item.published_at, t)}</span>
-        </div>
-        {item.source_title
-          ? <h2 className="modal-headline">{item.source_title}</h2>
-          : <h2 className="modal-headline">{item.headline}</h2>}
-        {item.source_body
-          ? <div className="modal-source-excerpt"><p className="modal-source-excerpt-body">{item.source_body}</p></div>
-          : <p className="modal-summary">{item.summary}</p>}
-        <div className="modal-footer">
-          {item.source && <span className="modal-source">{item.source}</span>}
-          {item.url && (
-            <a href={item.url} target="_blank" rel="noopener noreferrer" className="modal-read-original">
-              {t.readOriginal}
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Grid card
 // ---------------------------------------------------------------------------
 
-function FeedItem({ item, t, onClick }: { item: BriefingItem; t: Translations; onClick: () => void }) {
-  return (
-    <article
-      className={`feed-item feed-item--${item.tone}`}
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-    >
+function FeedItem({ item, t }: { item: BriefingItem; t: Translations }) {
+  const inner = (
+    <>
       <div className="feed-item-meta">
         <span className="category">{item.category}</span>
         <span className={`tone-badge ${TONE_CLASS[item.tone]}`}>{t.toneLabels[item.tone]}</span>
@@ -86,9 +41,22 @@ function FeedItem({ item, t, onClick }: { item: BriefingItem; t: Translations; o
           <strong>{t.whyItMatters}:</strong> {item.why_it_matters}
         </p>
       )}
-      {item.source && <span className="card-source">{item.source}</span>}
-    </article>
+      <div className="feed-item-footer">
+        {item.source && <span className="card-source">{item.source}</span>}
+        {item.url && <span className="feed-item-read-link">↗ Read original</span>}
+      </div>
+    </>
   );
+
+  if (item.url) {
+    return (
+      <a href={item.url} target="_blank" rel="noopener noreferrer"
+        className={`feed-item feed-item--${item.tone}`}>
+        {inner}
+      </a>
+    );
+  }
+  return <article className={`feed-item feed-item--${item.tone}`}>{inner}</article>;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +75,6 @@ interface Props {
 const INITIAL_VISIBLE = 2;
 
 export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false }: Props) {
-  const [selected, setSelected] = useState<BriefingItem | null>(null);
   const [expanded, setExpanded] = useState(false);
 
   const time = new Date(response.generated_at).toLocaleTimeString([], {
@@ -147,7 +114,7 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
 
         <div className="feed-grid">
           {visibleItems.map((item, i) => (
-            <FeedItem key={i} item={item} t={t} onClick={() => setSelected(item)} />
+            <FeedItem key={i} item={item} t={t} />
           ))}
         </div>
 
@@ -176,7 +143,6 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
         )}
       </section>
 
-      {selected && <ArticleModal item={selected} t={t} onClose={() => setSelected(null)} />}
     </>
   );
 }
