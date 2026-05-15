@@ -677,6 +677,7 @@ export default function App() {
                 initialMode={mode}
                 thread={thread}
                 onThreadChange={handleThreadChange}
+                onModeChange={setMode}
                 systemPreferences={systemPreferences}
                 modelQuality={modelQuality}
                 articleCounts={articleCounts}
@@ -700,6 +701,7 @@ export default function App() {
                 initialMode={mode}
                 thread={thread}
                 onThreadChange={handleThreadChange}
+                onModeChange={setMode}
                 systemPreferences={systemPreferences}
                 modelQuality={modelQuality}
                 articleCounts={articleCounts}

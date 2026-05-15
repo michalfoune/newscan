@@ -20,6 +20,7 @@ interface Props {
   initialMode: Mode;
   thread: ThreadItem[];
   onThreadChange: (thread: ThreadItem[]) => void;
+  onModeChange?: (mode: Mode) => void;
   systemPreferences?: string;
   modelQuality?: string;
   articleCounts?: ArticleCounts;
@@ -27,7 +28,7 @@ interface Props {
   location?: string;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, systemPreferences, modelQuality, articleCounts, newsSource, location }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, onModeChange, systemPreferences, modelQuality, articleCounts, newsSource, location }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
@@ -269,7 +270,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                   type="button"
                   className={`mode-btn${chatMode === m ? ' mode-btn--active' : ''}`}
                   style={{ background: MODE_COLORS[m] }}
-                  onClick={() => setChatMode(m)}
+                  onClick={() => { setChatMode(m); onModeChange?.(m); }}
                   disabled={sending}
                 >
                   {t.modeLabels[m]}
