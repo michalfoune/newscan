@@ -131,7 +131,7 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
                     >
                       {tts.state === 'loading' && <span className="tts-spinner" />}
                       {tts.state === 'idle' && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
-                      {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="10" rx="1"/><rect x="7" y="1" width="4" height="10" rx="1"/></svg>}
+                      {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1.35" y="2" width="3.4" height="8.5" rx="1"/><rect x="6.75" y="2" width="3.4" height="8.5" rx="1"/></svg>}
                       {tts.state === 'paused' && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
                     </button>
                   )}
