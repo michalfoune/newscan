@@ -414,6 +414,7 @@ body {
   background: transparent;
   color: #1a1a1a;
   box-shadow: none;
+  overflow-y: auto;
 }
 
 .query-box textarea:focus {

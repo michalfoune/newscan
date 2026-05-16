@@ -136,7 +136,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
             <button
               type="button"
               className="mic-btn"
-              onClick={startRecording}
+              onClick={() => { setRequest(''); startRecording(); }}
               disabled={loading}
               title="Voice input"
             >
