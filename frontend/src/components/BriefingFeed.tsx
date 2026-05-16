@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
+import { useTTS } from '../hooks/useTTS';
+import { stripMarkdown } from '../utils/markdown';
 
 const MODE_COLORS: Record<Mode, string> = {
   calm: '#4838a8',
@@ -70,12 +72,30 @@ interface Props {
   generationSeconds?: number | null;
   showKeywords?: boolean;
   relatedCoverage?: boolean;
+  apiUrl?: string;
+}
+
+const MODE_COLORS_HEX: Record<Mode, string> = {
+  calm: '#4838a8',
+  balanced: '#2e7d4f',
+  brave: '#e07040',
+};
+
+function buildBriefText(response: BriefingResponse): string {
+  const parts: string[] = [];
+  if (response.overall_summary) parts.push(response.overall_summary);
+  for (const item of response.items) {
+    parts.push(`${item.headline}. ${item.summary}`);
+    if (item.why_it_matters) parts.push(item.why_it_matters);
+  }
+  return parts.join(' ');
 }
 
 const INITIAL_VISIBLE = 2;
 
-export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false }: Props) {
+export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false, apiUrl }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const tts = useTTS(apiUrl ?? '');
 
   const time = new Date(response.generated_at).toLocaleTimeString([], {
     hour: '2-digit',
@@ -97,6 +117,24 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
                     {t.modeLabels[mode]}
                   </span>
                   <span className="feed-count">{t.stories(response.items.length)}</span>
+                  {apiUrl && response.items.length > 0 && (
+                    <button
+                      className={`tts-btn${tts.state !== 'idle' ? ' tts-btn--active' : ''}`}
+                      style={tts.state !== 'idle' ? { color: MODE_COLORS_HEX[mode] } : undefined}
+                      onClick={() => {
+                        if (tts.state === 'idle') tts.play(stripMarkdown(buildBriefText(response)));
+                        else if (tts.state === 'playing') tts.togglePause();
+                        else if (tts.state === 'paused') tts.togglePause();
+                        else if (tts.state === 'loading') tts.stop();
+                      }}
+                      title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
+                    >
+                      {tts.state === 'loading' && <span className="tts-spinner" />}
+                      {tts.state === 'idle' && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
+                      {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="10" rx="1"/><rect x="7" y="1" width="4" height="10" rx="1"/></svg>}
+                      {tts.state === 'paused' && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
+                    </button>
+                  )}
                 </>
             }
           </div>

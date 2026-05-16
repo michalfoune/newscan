@@ -56,6 +56,11 @@ class ChatResponse(BaseModel):
     reply: str
 
 
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "nova"
+
+
 class ChatStreamRequest(BaseModel):
     messages: List[ChatMessage]
     new_message: str

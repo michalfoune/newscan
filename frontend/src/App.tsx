@@ -5,7 +5,8 @@ import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
 import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, QueryType, ThreadItem } from './types';
 import { Language, translations, Translations } from './translations';
-import { renderMarkdown } from './utils/markdown';
+import { renderMarkdown, stripMarkdown } from './utils/markdown';
+import { useTTS } from './hooks/useTTS';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -43,7 +44,7 @@ const MODE_BG: Record<string, string> = {
   brave: '#f0eae4',
 };
 
-function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, generationSeconds, generatedAt, t }: {
+function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, generationSeconds, generatedAt, t, apiUrl }: {
   answer: string;
   streamingAnswer?: string;
   knowledgeCutoff?: string;
@@ -51,11 +52,13 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
   generationSeconds?: number | null;
   generatedAt?: string;
   t: Translations;
+  apiUrl?: string;
 }) {
   const displayText = streamingAnswer ?? answer;
   const time = generatedAt
     ? new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+  const tts = useTTS(apiUrl ?? '');
   return (
     <section className="briefing-feed">
       <div className="feed-header">
@@ -63,6 +66,23 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
           <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
             {t.modeLabels[mode]}
           </span>
+          {apiUrl && answer && !streamingAnswer && (
+            <button
+              className={`tts-btn${tts.state !== 'idle' ? ' tts-btn--active' : ''}`}
+              style={tts.state !== 'idle' ? { color: MODE_COLORS[mode] } : undefined}
+              onClick={() => {
+                if (tts.state === 'idle') tts.play(stripMarkdown(answer));
+                else if (tts.state === 'playing') tts.togglePause();
+                else if (tts.state === 'paused') tts.togglePause();
+                else tts.stop();
+              }}
+              title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
+            >
+              {tts.state === 'loading' && <span className="tts-spinner" />}
+              {(tts.state === 'idle' || tts.state === 'paused') && <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><polygon points="2,1 12,6.5 2,12"/></svg>}
+              {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="10" rx="1"/><rect x="7" y="1" width="4" height="10" rx="1"/></svg>}
+            </button>
+          )}
         </div>
         <span className="feed-time">
           {time ? t.generatedAt(time) : ''}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}
@@ -666,9 +686,10 @@ export default function App() {
                 generationSeconds={response?.knowledgeAnswer ? generationSeconds : null}
                 generatedAt={response?.generated_at}
                 t={t}
+                apiUrl={API_URL}
               />
               {response && response.items.length > 0 && (
-                <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage />
+                <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage apiUrl={API_URL} />
               )}
               <div className="section-divider" />
               <ChatInterface
@@ -693,7 +714,7 @@ export default function App() {
           {/* News path */}
           {response && response.queryType !== 'knowledge' && response.items.length > 0 && (
             <>
-              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} />
+              <BriefingFeed response={response} t={t} mode={mode} generationSeconds={generationSeconds} showKeywords={showKeywords} apiUrl={API_URL} />
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}

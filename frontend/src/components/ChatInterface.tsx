@@ -4,6 +4,8 @@ import { Translations } from '../translations';
 import { BriefingFeed } from './BriefingFeed';
 import { renderMarkdown } from '../utils/markdown';
 import { useVoiceInput } from '../hooks/useVoiceInput';
+import { useTTS } from '../hooks/useTTS';
+import { stripMarkdown } from '../utils/markdown';
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
@@ -37,6 +39,18 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [pendingText, setPendingText] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [fetchElapsed, setFetchElapsed] = useState(0);
+
+  const tts = useTTS(apiUrl);
+  const [ttsIdx, setTtsIdx] = useState<number | null>(null);
+
+  const handleTTS = (content: string, idx: number) => {
+    if (ttsIdx === idx && tts.state !== 'idle') {
+      tts.togglePause();
+    } else {
+      setTtsIdx(idx);
+      tts.play(stripMarkdown(content)).then(() => setTtsIdx(null));
+    }
+  };
 
   const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice } = useVoiceInput({
     apiUrl,
@@ -208,6 +222,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
         <div className="chat-thread">
           {thread.map((item, i) => {
             if (item.type === 'message') {
+              const isThisTTS = ttsIdx === i;
               return (
                 <div key={i} className={`chat-msg-wrap chat-msg-wrap--${item.role}`}>
                   <div className={`chat-msg chat-msg--${item.role}`}>
@@ -225,6 +240,21 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                         <path d="M2 9V2h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </button>
+                    {item.role === 'assistant' && (
+                      <button
+                        type="button"
+                        className="hover-action-btn"
+                        data-tooltip={isThisTTS && tts.state === 'playing' ? 'Pause' : isThisTTS && tts.state === 'paused' ? 'Resume' : 'Listen'}
+                        onClick={() => handleTTS(item.content, i)}
+                      >
+                        {isThisTTS && tts.state === 'loading' && <span className="tts-spinner" />}
+                        {isThisTTS && tts.state === 'playing'
+                          ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="10" rx="1"/><rect x="7" y="1" width="4" height="10" rx="1"/></svg>
+                          : (!isThisTTS || tts.state === 'idle') && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>
+                        }
+                        {isThisTTS && tts.state === 'paused' && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

@@ -1475,6 +1475,44 @@ textarea::placeholder {
 }
 
 
+/* ── TTS ─────────────────────────────────────────────────── */
+.tts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: 1.35px solid #555;
+  border-radius: 50%;
+  color: #1a1a1a;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.tts-btn:hover {
+  color: #000;
+  border-color: #333;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tts-btn--active {
+  border-color: currentColor;
+  color: inherit;
+}
+
+.tts-spinner {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid #ddd;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: voice-spin 0.7s linear infinite;
+}
+
 /* ── Voice input ─────────────────────────────────────────── */
 .mic-btn {
   display: flex;
