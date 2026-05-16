@@ -5,7 +5,7 @@ import openai as openai_lib
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse, ChatStreamRequest
+from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse, ChatStreamRequest, TTSRequest
 from briefing import generate_briefing, generate_briefing_stream
 from chat import answer_followup, answer_followup_stream
 
@@ -35,6 +35,19 @@ async def transcribe(audio: UploadFile = File(...)):
             file=(audio.filename or "recording.webm", content, audio.content_type or "audio/webm"),
         )
         return {"text": transcript.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tts")
+def text_to_speech(req: TTSRequest):
+    try:
+        response = openai_lib.OpenAI().audio.speech.create(
+            model="tts-1",
+            voice=req.voice,
+            input=req.text,
+        )
+        return StreamingResponse(response.iter_bytes(chunk_size=4096), media_type="audio/mpeg")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
