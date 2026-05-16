@@ -68,8 +68,8 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
           </span>
           {apiUrl && answer && !streamingAnswer && (
             <button
-              className={`tts-btn${tts.state !== 'idle' ? ' tts-btn--active' : ''}`}
-              style={tts.state !== 'idle' ? { color: MODE_COLORS[mode] } : undefined}
+              className="tts-btn"
+              style={{ color: MODE_COLORS[mode] }}
               onClick={() => {
                 if (tts.state === 'idle') tts.play(stripMarkdown(answer));
                 else if (tts.state === 'playing') tts.togglePause();
@@ -79,8 +79,8 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
               title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
             >
               {tts.state === 'loading' && <span className="tts-spinner" />}
-              {(tts.state === 'idle' || tts.state === 'paused') && <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><polygon points="2,1 12,6.5 2,12"/></svg>}
-              {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="4" height="10" rx="1"/><rect x="7" y="1" width="4" height="10" rx="1"/></svg>}
+              {(tts.state === 'idle' || tts.state === 'paused') && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
+              {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1.35" y="2" width="3.4" height="8.5" rx="1"/><rect x="6.75" y="2" width="3.4" height="8.5" rx="1"/></svg>}
             </button>
           )}
         </div>
