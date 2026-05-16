@@ -7,6 +7,7 @@ import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversa
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown, stripMarkdown } from './utils/markdown';
 import { useTTS } from './hooks/useTTS';
+import { PauseIcon, PlayIcon } from './components/icons';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -79,8 +80,8 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
               title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
             >
               {tts.state === 'loading' && <span className="tts-spinner" />}
-              {(tts.state === 'idle' || tts.state === 'paused') && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
-              {tts.state === 'playing' && <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1.35" y="2" width="3.4" height="8.5" rx="1"/><rect x="6.75" y="2" width="3.4" height="8.5" rx="1"/></svg>}
+              {(tts.state === 'idle' || tts.state === 'paused') && <PlayIcon />}
+              {tts.state === 'playing' && <PauseIcon />}
             </button>
           )}
         </div>

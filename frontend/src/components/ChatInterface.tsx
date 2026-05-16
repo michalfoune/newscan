@@ -6,6 +6,7 @@ import { renderMarkdown } from '../utils/markdown';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useTTS } from '../hooks/useTTS';
 import { stripMarkdown } from '../utils/markdown';
+import { PauseIcon, PlayIcon } from './icons';
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
@@ -252,10 +253,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                       >
                         {isThisTTS && tts.state === 'loading' && <span className="tts-spinner" />}
                         {isThisTTS && tts.state === 'playing'
-                          ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1.35" y="2" width="3.4" height="8.5" rx="1"/><rect x="6.75" y="2" width="3.4" height="8.5" rx="1"/></svg>
-                          : (!isThisTTS || tts.state === 'idle') && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>
+                          ? <PauseIcon />
+                          : (!isThisTTS || tts.state === 'idle') && <PlayIcon />
                         }
-                        {isThisTTS && tts.state === 'paused' && <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor"><polygon points="3.5,1 13.5,6.5 3.5,12"/></svg>}
+                        {isThisTTS && tts.state === 'paused' && <PlayIcon />}
                       </button>
                     )}
                   </div>
