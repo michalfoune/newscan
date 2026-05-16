@@ -1139,6 +1139,7 @@ textarea::placeholder {
 
 .hover-actions {
   display: flex;
+  align-items: center;
   gap: 0.2rem;
   opacity: 0;
   transition: opacity 0.15s;
@@ -1285,6 +1286,26 @@ textarea::placeholder {
   border: none;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
   margin: 0.5em 0;
+}
+
+.chat-md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9em;
+  margin: 0.5em 0;
+}
+.chat-md-table th,
+.chat-md-table td {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0.35em 0.65em;
+  text-align: left;
+}
+.chat-md-table thead th {
+  background: rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+}
+.chat-md-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .chat-status-msg {
@@ -1500,6 +1521,13 @@ textarea::placeholder {
 .tts-btn--active {
   border-color: currentColor;
   color: inherit;
+}
+
+.tts-btn--sm {
+  width: 20px;
+  height: 20px;
+  border-width: 1.2px;
+  color: #555;
 }
 
 .tts-spinner {

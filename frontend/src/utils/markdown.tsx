@@ -10,6 +10,7 @@ export function stripMarkdown(text: string): string {
     .replace(/^\d+\.\s+/gm, '')
     .replace(/`(.+?)`/g, '$1')
     .replace(/^-{3,}$/gm, '')
+    .replace(/\|.+\|/g, '')
     .replace(/\n{2,}/g, ' ')
     .replace(/\n/g, ' ')
     .trim();
@@ -30,7 +31,15 @@ export function renderInline(text: string): React.ReactNode {
   );
 }
 
-type LineKind = 'empty' | 'hr' | 'heading' | 'bullet' | 'numbered' | 'text';
+function isTableRow(line: string): boolean {
+  return /^\|.+\|$/.test(line.trim());
+}
+
+function isSeparatorRow(line: string): boolean {
+  return /^\|[\s|:-]+\|$/.test(line.trim());
+}
+
+type LineKind = 'empty' | 'hr' | 'heading' | 'bullet' | 'numbered' | 'table' | 'text';
 
 function lineKind(line: string): LineKind {
   const t = line.trim();
@@ -39,7 +48,12 @@ function lineKind(line: string): LineKind {
   if (/^#{1,6}\s/.test(t)) return 'heading';
   if (/^[-*]\s/.test(t)) return 'bullet';
   if (/^\d+\.\s/.test(t)) return 'numbered';
+  if (isTableRow(t)) return 'table';
   return 'text';
+}
+
+function parseTableCells(line: string): string[] {
+  return line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
 }
 
 export function renderMarkdown(text: string): React.ReactNode {
@@ -86,6 +100,32 @@ export function renderMarkdown(text: string): React.ReactNode {
         i++;
       }
       blocks.push(<ol key={k++} className="chat-md-list">{items.map((it, j) => <li key={j}>{renderInline(it)}</li>)}</ol>);
+      continue;
+    }
+
+    if (kind === 'table') {
+      const tableLines: string[] = [];
+      while (i < lines.length && lineKind(lines[i]) === 'table') {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      const nonSep = tableLines.filter(l => !isSeparatorRow(l));
+      if (nonSep.length >= 1) {
+        const [headerRow, ...bodyRows] = nonSep;
+        const headers = parseTableCells(headerRow);
+        blocks.push(
+          <table key={k++} className="chat-md-table">
+            <thead>
+              <tr>{headers.map((h, j) => <th key={j}>{renderInline(h)}</th>)}</tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, j) => (
+                <tr key={j}>{parseTableCells(row).map((cell, ci) => <td key={ci}>{renderInline(cell)}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      }
       continue;
     }
 

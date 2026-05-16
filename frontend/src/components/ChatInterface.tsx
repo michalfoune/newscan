@@ -247,7 +247,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                     {item.role === 'assistant' && (
                       <button
                         type="button"
-                        className="hover-action-btn"
+                        className="hover-action-btn tts-btn tts-btn--sm"
                         data-tooltip={isThisTTS && tts.state === 'playing' ? 'Pause' : isThisTTS && tts.state === 'paused' ? 'Resume' : 'Listen'}
                         onClick={() => handleTTS(item.content, i)}
                       >

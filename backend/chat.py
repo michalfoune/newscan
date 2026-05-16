@@ -197,7 +197,7 @@ def answer_followup_stream(req: ChatStreamRequest):
 
     with client.messages.stream(
         model=REASONING_MODELS.get(req.model_quality, REASONING_MODELS["fast"]),
-        max_tokens=1024,
+        max_tokens=16000,
         system=_build_system(req, context_block),
         messages=messages_for_api,
     ) as stream:

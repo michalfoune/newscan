@@ -8,7 +8,7 @@ function splitSentences(text: string): string[] {
   let buf = '';
   for (const s of raw) {
     buf = buf ? buf + ' ' + s : s;
-    if (buf.length >= 60) {
+    if (buf.length >= 150) {
       chunks.push(buf.trim());
       buf = '';
     }
@@ -19,9 +19,15 @@ function splitSentences(text: string): string[] {
 
 export function useTTS(apiUrl: string) {
   const [state, setState] = useState<TTSState>('idle');
+  // Single reused audio element — avoids iOS Safari autoplay blocks on new Audio() per chunk
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  function getAudio(): HTMLAudioElement {
+    if (!audioRef.current) audioRef.current = new Audio();
+    return audioRef.current;
+  }
 
   const cleanup = () => {
     abortRef.current?.abort();
@@ -30,7 +36,7 @@ export function useTTS(apiUrl: string) {
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
       audioRef.current.pause();
-      audioRef.current = null;
+      audioRef.current.src = '';
     }
     if (urlRef.current) {
       URL.revokeObjectURL(urlRef.current);
@@ -65,8 +71,8 @@ export function useTTS(apiUrl: string) {
   const playUrl = (url: string, signal: AbortSignal): Promise<void> => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = url;
-    const audio = new Audio(url);
-    audioRef.current = audio;
+    const audio = getAudio();
+    audio.src = url;
 
     return new Promise((resolve, reject) => {
       const onAbort = () => { audio.pause(); reject(new DOMException('Aborted', 'AbortError')); };
@@ -89,11 +95,9 @@ export function useTTS(apiUrl: string) {
     if (chunks.length === 0) { setState('idle'); return; }
 
     try {
-      // Pre-fetch first chunk immediately
       let nextFetch: Promise<string | null> = fetchAudioUrl(chunks[0], signal);
 
       for (let i = 0; i < chunks.length; i++) {
-        // Kick off the next chunk's fetch while we await the current one
         const futureFetch: Promise<string | null> | null =
           i + 1 < chunks.length ? fetchAudioUrl(chunks[i + 1], signal) : null;
 
@@ -107,7 +111,7 @@ export function useTTS(apiUrl: string) {
         nextFetch = futureFetch ?? Promise.resolve(null);
       }
     } catch {
-      // AbortError or playback error — fall through to cleanup
+      // AbortError or playback error
     } finally {
       cleanup();
       setState('idle');
@@ -115,12 +119,13 @@ export function useTTS(apiUrl: string) {
   };
 
   const togglePause = () => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     if (state === 'playing') {
-      audioRef.current.pause();
+      audio.pause();
       setState('paused');
     } else if (state === 'paused') {
-      audioRef.current.play();
+      audio.play();
       setState('playing');
     }
   };
