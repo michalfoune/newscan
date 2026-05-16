@@ -220,6 +220,11 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
 
   const showTypingDots = sending && pendingText === '';
 
+  const lastAssistantIdx = thread.reduce<number>(
+    (last, item, i) => (item.type === 'message' && item.role === 'assistant' ? i : last),
+    -1
+  );
+
   return (
     <div className="chat">
       {(thread.length > 0 || sending) && (
@@ -227,12 +232,13 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           {thread.map((item, i) => {
             if (item.type === 'message') {
               const isThisTTS = ttsIdx === i;
+              const isLastAssistant = i === lastAssistantIdx && !sending;
               return (
                 <div key={i} className={`chat-msg-wrap chat-msg-wrap--${item.role}`}>
                   <div className={`chat-msg chat-msg--${item.role}`}>
                     {renderMarkdown(item.content)}
                   </div>
-                  <div className="hover-actions">
+                  <div className={`hover-actions${isLastAssistant ? ' hover-actions--visible' : ''}`}>
                     <button
                       type="button"
                       className="hover-action-btn"
@@ -253,10 +259,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                       >
                         {isThisTTS && tts.state === 'loading' && <span className="tts-spinner" />}
                         {isThisTTS && tts.state === 'playing'
-                          ? <PauseIcon />
-                          : (!isThisTTS || tts.state === 'idle') && <PlayIcon />
+                          ? <PauseIcon small />
+                          : (!isThisTTS || tts.state === 'idle') && <PlayIcon small />
                         }
-                        {isThisTTS && tts.state === 'paused' && <PlayIcon />}
+                        {isThisTTS && tts.state === 'paused' && <PlayIcon small />}
                       </button>
                     )}
                   </div>

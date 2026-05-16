@@ -1147,7 +1147,8 @@ textarea::placeholder {
 }
 
 .query-textarea-wrap:hover .hover-actions,
-.chat-msg-wrap:hover .hover-actions {
+.chat-msg-wrap:hover .hover-actions,
+.hover-actions--visible {
   opacity: 1;
 }
 
