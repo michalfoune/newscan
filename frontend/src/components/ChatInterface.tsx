@@ -44,7 +44,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [ttsIdx, setTtsIdx] = useState<number | null>(null);
 
   const handleTTS = (content: string, idx: number) => {
-    if (ttsIdx === idx && tts.state !== 'idle') {
+    if (ttsIdx === idx && tts.state === 'loading') {
+      tts.stop();
+      setTtsIdx(null);
+    } else if (ttsIdx === idx && (tts.state === 'playing' || tts.state === 'paused')) {
       tts.togglePause();
     } else {
       setTtsIdx(idx);

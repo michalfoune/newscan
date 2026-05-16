@@ -119,8 +119,8 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
                   <span className="feed-count">{t.stories(response.items.length)}</span>
                   {apiUrl && response.items.length > 0 && (
                     <button
-                      className={`tts-btn${tts.state !== 'idle' ? ' tts-btn--active' : ''}`}
-                      style={tts.state !== 'idle' ? { color: MODE_COLORS_HEX[mode] } : undefined}
+                      className="tts-btn"
+                      style={{ color: MODE_COLORS_HEX[mode] }}
                       onClick={() => {
                         if (tts.state === 'idle') tts.play(stripMarkdown(buildBriefText(response)));
                         else if (tts.state === 'playing') tts.togglePause();

@@ -1483,7 +1483,7 @@ textarea::placeholder {
   width: 30px;
   height: 30px;
   background: none;
-  border: 1.35px solid #555;
+  border: 1.35px solid currentColor;
   border-radius: 50%;
   color: #1a1a1a;
   cursor: pointer;
@@ -1493,9 +1493,7 @@ textarea::placeholder {
 }
 
 .tts-btn:hover {
-  color: #000;
-  border-color: #333;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.07);
 }
 
 .tts-btn--active {

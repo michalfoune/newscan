@@ -6,8 +6,11 @@ export function useTTS(apiUrl: string) {
   const [state, setState] = useState<TTSState>('idle');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const cleanup = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     if (audioRef.current) {
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
@@ -29,12 +32,15 @@ export function useTTS(apiUrl: string) {
 
   const play = async (text: string) => {
     cleanup();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setState('loading');
     try {
       const res = await fetch(`${apiUrl}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error('TTS failed');
       const blob = await res.blob();
