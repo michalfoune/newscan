@@ -65,7 +65,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   });
 
   useEffect(() => {
-    if (statusMsg === 'Getting more info…') {
+    if (statusMsg === 'Thinking…') {
       setFetchElapsed(0);
       const id = setInterval(() => setFetchElapsed(s => s + 1), 1000);
       return () => clearInterval(id);
@@ -175,7 +175,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
             if (eventType === 'status' && dataLine) {
               const data = JSON.parse(dataLine);
               if (data.stage === 'fetching_articles') {
-                setStatusMsg('Getting more info…');
+                setStatusMsg('Thinking…');
               } else {
                 setStatusMsg(null);
               }
