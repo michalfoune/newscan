@@ -1,46 +1,51 @@
-# Newscan
+# Rizma Brief
 
-Newscan is an AI news catch-up app designed to help users stay informed without getting dragged into doomscrolling, emotional overload, or unnecessarily distressing coverage.
+Rizma Brief is an AI-powered news app designed to help users stay informed without feeling overwhelmed — no doomscrolling, no unnecessarily distressing coverage.
 
-## Core idea
+## What it does
 
-The app gives users more control over both:
+- **News briefings** — fetches fresh articles and generates a personalized, emotionally calibrated briefing on any topic
+- **Knowledge answers** — for stable or biographical questions, answers directly from AI knowledge with real-time web search for time-sensitive facts
+- **Follow-up chat** — continue a conversation after any briefing or answer; the AI fetches fresh articles or searches the web when needed
+- **Three tone modes** — Calm (gentle framing for sensitive readers), Balanced (complete but measured), Brave (direct and unfiltered)
+- **Text-to-speech** — listen to any briefing or chat response, streamed in sentence chunks
+- **Voice input** — speak your query instead of typing
+- **Conversation history** — all sessions saved locally with auto-generated titles; resume any previous conversation
+- **Language support** — English and Czech
 
-1. **What this specific newsfeed should contain**
-2. **How the newsfeed should generally be constructed**
+## Stack
 
-This allows a user to shape the feed at two levels:
-- a **session prompt** for what they want right now
-- a **persistent system preference** for the tone and balance of the feed overall
-
-## Example user request
-
-> Give me one short update about the Russia-Ukraine war, and then some good news from photography or wildlife conservation.
-
-## Feed design principles
-
-- Let users include and exclude topics explicitly
-- Keep news concise, factual, and high-level
-- Avoid sensationalism, clickbait, and emotionally manipulative framing
-- Do not over-focus on disasters, war, tragedy, or outrage
-- Maintain a healthier emotional balance in the overall feed
-
----
+- **Frontend:** React 18 + TypeScript + Vite
+- **Backend:** Python + FastAPI
+- **AI:** Anthropic Claude API — briefing generation, tone control, chat, classification, web search (native tool)
+- **TTS:** OpenAI TTS API (`tts-1`, `nova` voice)
+- **News sources:** GNews API (primary), NewsAPI.ai (secondary)
 
 ## Running locally
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.9+
 - Node.js 18+
-- An Anthropic API key
+- API keys (see below)
+
+### Environment variables
+
+Create `backend/.env` with the following keys:
+
+```
+ANTHROPIC_API_KEY=      # required — briefing, chat, web search
+OPENAI_API_KEY=         # required — text-to-speech
+GNEWS_API_KEY=          # required — primary news source
+NEWS_API_KEY=           # optional — secondary news source (NewsAPI.ai)
+```
 
 ### Backend
 
 ```bash
 cd backend
 cp .env.example .env
-# Add your ANTHROPIC_API_KEY to .env
+# Fill in your API keys
 
 python -m venv .venv
 source .venv/bin/activate
@@ -48,7 +53,6 @@ pip install -r requirements.txt
 
 uvicorn main:app --reload
 # Runs at http://localhost:8000
-# API docs at http://localhost:8000/docs
 ```
 
 ### Frontend
@@ -59,15 +63,3 @@ npm install
 npm run dev
 # Runs at http://localhost:5173
 ```
-
----
-
-## Stack
-
-- **Frontend:** React + TypeScript + Vite
-- **Backend:** Python + FastAPI
-- **AI layer:** Anthropic Claude API (briefing generation, tone control, summarization)
-
-## Status
-
-Early MVP. News is generated from the model's knowledge — real-time news source integration is the next step.

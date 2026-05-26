@@ -33,7 +33,7 @@ export interface Translations {
 
 export const translations: Record<Language, Translations> = {
   en: {
-    tagline: 'Stay informed without emotional overload.',
+    tagline: 'Stay informed without feeling overwhelmed.',
     requestLabel: 'What would you like to know?',
     requestPlaceholder: 'e.g. What\'s the most important news today?',
     prefsToggleShow: '+ Persistent preferences',
@@ -76,7 +76,7 @@ export const translations: Record<Language, Translations> = {
     chatSending: 'Sending…',
   },
   cs: {
-    tagline: 'Zůstaňte informováni bez emočního přetížení.',
+    tagline: 'Zůstaňte informováni bez pocitu přetížení.',
     requestLabel: 'Co byste chtěli vědět?',
     requestPlaceholder: 'Např. Jaké jsou nejdůležitější zprávy dneška? Přidej jednu pozitivní zprávu.',
     prefsToggleShow: '+ Trvalé předvolby',
