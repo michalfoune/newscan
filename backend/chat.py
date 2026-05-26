@@ -61,19 +61,25 @@ Given context from a previous response and a user follow-up question, decide:
 - Any question where LLM knowledge is sufficient
 - When in doubt, always choose "answer"
 
+Note: The model answering the question has real-time web search available, so it can look up current facts on its own. Choose "answer" for anything a knowledgeable person with internet access could answer.
+
 "fetch": Fetch a few fresh news articles to supplement the answer. Use ONLY when ALL of these are true:
-- The user is explicitly asking about recent/latest news or developments
-- The topic is ongoing and news-driven (not historical or biographical)
-- Fresh articles would meaningfully add to what LLM knowledge can provide
+- The user is explicitly asking about recent/latest news or developments on an ongoing story
+- The topic is news-driven and would benefit from full article text (not just search snippets)
+- Fresh articles would meaningfully add beyond what web search alone could provide
 
 Return ONLY valid JSON: {"action": "answer" | "fetch", "query": "concise search terms if fetch, else null"}
 
 Examples:
-- "Amy Winehouse..." after asking about Amy → {"action": "answer", "query": null}
 - "Tell me more about the ceasefire" → {"action": "answer", "query": null}
 - "What caused this?" → {"action": "answer", "query": null}
+- "Who won last night's game?" → {"action": "answer", "query": null}
+- "What are the current standings?" → {"action": "answer", "query": null}
 - "What's the latest on the Ukraine war?" → {"action": "fetch", "query": "Ukraine war latest"}
 - "Any new developments with the Fed?" → {"action": "fetch", "query": "Federal Reserve interest rates"}"""
+
+
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
 
 
 def _classify(context: str, question: str) -> Tuple[str, Optional[str]]:
@@ -156,8 +162,10 @@ def answer_followup(req: ChatRequest) -> ChatResponse:
         max_tokens=1024,
         system=_build_system(req, context_block),
         messages=[{"role": m.role, "content": m.content} for m in req.messages],
+        tools=[WEB_SEARCH_TOOL],
     )
-    return ChatResponse(reply=message.content[0].text.strip())
+    text = next((b.text for b in message.content if hasattr(b, "text")), "")
+    return ChatResponse(reply=text.strip())
 
 
 def answer_followup_stream(req: ChatStreamRequest):
@@ -200,6 +208,7 @@ def answer_followup_stream(req: ChatStreamRequest):
         max_tokens=16000,
         system=_build_system(req, context_block),
         messages=messages_for_api,
+        tools=[WEB_SEARCH_TOOL],
     ) as stream:
         for chunk in stream.text_stream:
             yield f"event: reply_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
