@@ -39,6 +39,7 @@ export type ThreadItem =
 export interface Conversation {
   id: string;
   query: string;
+  name?: string;
   response: BriefingResponse;
   thread: ThreadItem[];
   mode: Mode;

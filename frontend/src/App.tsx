@@ -404,6 +404,7 @@ export default function App() {
     let convId: string | null = null;
     let accKnowledge = '';
     let queryType: QueryType = 'news';
+    let pendingTitle: string | null = null;
 
     try {
       const res = await fetch(`${API_URL}/api/briefing/stream`, {
@@ -446,6 +447,7 @@ export default function App() {
                 const conv: Conversation = {
                   id: convId,
                   query: req.request,
+                  name: pendingTitle ?? undefined,
                   response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' },
                   thread: [],
                   mode: req.mode,
@@ -455,6 +457,13 @@ export default function App() {
                 setConversations(prev => [conv, ...prev].slice(0, 50));
                 setActiveId(convId);
               }
+            } else if (eventType === 'title' && dataLine) {
+              const data = JSON.parse(dataLine) as { title: string };
+              pendingTitle = data.title;
+              if (convId) {
+                const cid = convId;
+                setConversations(prev => prev.map(c => c.id === cid ? { ...c, name: data.title } : c));
+              }
             } else if (eventType === 'fallback') {
               queryType = 'knowledge';
               setResponse(prev => prev ? { ...prev, queryType: 'knowledge' } : { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' });
@@ -463,6 +472,7 @@ export default function App() {
                 const conv: Conversation = {
                   id: convId,
                   query: req.request,
+                  name: pendingTitle ?? undefined,
                   response: { items: [], generated_at: new Date().toISOString(), missing_topics: [], queryType: 'knowledge' },
                   thread: [],
                   mode: req.mode,
@@ -503,6 +513,7 @@ export default function App() {
                 const conv: Conversation = {
                   id: convId,
                   query: req.request,
+                  name: pendingTitle ?? undefined,
                   response: { items: snap, overall_summary: undefined, generated_at: new Date().toISOString(), missing_topics: [] },
                   thread: [],
                   mode: req.mode,
@@ -566,9 +577,12 @@ export default function App() {
   const handleThreadChange = (newThread: ThreadItem[]) => {
     setThread(newThread);
     if (activeId) {
-      setConversations(prev =>
-        prev.map(c => c.id === activeId ? { ...c, thread: newThread } : c)
-      );
+      const id = activeId;
+      setConversations(prev => {
+        const updated = prev.map(c => c.id === id ? { ...c, thread: newThread, timestamp: Date.now() } : c);
+        const moved = updated.find(c => c.id === id);
+        return moved ? [moved, ...updated.filter(c => c.id !== id)] : updated;
+      });
     }
   };
 
@@ -607,7 +621,7 @@ export default function App() {
           setConversations(prev => prev.filter(c => c.id !== id));
           if (activeId === id) handleNew();
         }}
-        onRename={(id, name) => setConversations(prev => prev.map(c => c.id === id ? { ...c, query: name } : c))}
+        onRename={(id, name) => setConversations(prev => prev.map(c => c.id === id ? { ...c, name } : c))}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

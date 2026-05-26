@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import anthropic
 from datetime import datetime, timezone
@@ -6,32 +7,25 @@ from typing import Optional
 from models import BriefingRequest, BriefingResponse, BriefingItem
 from news import fetch_articles
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
 
 CLASSIFY_PROMPT = (
-    "Classify the user's query as either 'news' or 'knowledge'.\n\n"
+    "Classify the user's query and generate a short display title.\n\n"
+    "Classification — 'news' or 'knowledge':\n"
     "'news': the answer changes week to week — current state of markets, economy, politics, ongoing conflicts, "
     "technology landscape, company developments, sports seasons, climate events. Use this whenever the user wants "
-    "to know what is happening or how things stand RIGHT NOW, even if they don't say 'latest' or 'today'.\n\n"
+    "to know what is happening or how things stand RIGHT NOW, even if they don't say 'latest' or 'today'.\n"
     "'knowledge': the answer is stable — a specific date or schedule, how something works mechanically, "
     "a historical event clearly in the past, a definition, or a biographical fact. "
     "Use this ONLY when the core of the answer does not change from week to week.\n\n"
-    "Examples:\n"
-    "- 'What political stories matter today?' → news\n"
-    "- 'How is the economy doing?' → news\n"
-    "- 'What's moving financial markets?' → news\n"
-    "- 'What's new in tech?' → news\n"
-    "- 'How is Porsche 718 EV doing?' → news\n"
-    "- 'What's happening in Gaza?' → news\n"
-    "- 'Top stories today' → news\n"
-    "- 'When will the next Ice Hockey World Championship be held?' → knowledge\n"
-    "- 'When is the next US presidential election?' → knowledge\n"
-    "- 'How does quantum computing work?' → knowledge\n"
-    "- 'Who was Abraham Lincoln?' → knowledge\n"
-    "- 'What caused World War 2?' → knowledge\n\n"
-    "Return ONLY the single word: news or knowledge."
+    "Title: 2–5 words, sentence case, no punctuation at the end. Capture the core topic, not the question form. "
+    "Examples: 'Ukraine war update', 'Fed interest rates', 'Gaza conflict', 'Abraham Lincoln biography', "
+    "'Quantum computing explained', 'Porsche 718 EV news'.\n\n"
+    "Return ONLY valid JSON: {\"type\": \"news\" | \"knowledge\", \"title\": \"...\"}"
 )
 
 TOPIC_EXTRACTION_PROMPT = (
@@ -318,19 +312,29 @@ _KNOWLEDGE_MODE_INSTRUCTIONS: dict = {
 }
 
 
-def classify_query(request: str, client: anthropic.Anthropic) -> str:
-    """Return 'news' or 'knowledge' for the given user query."""
+def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Optional[str]]:
+    """Return (type, title) where type is 'news' or 'knowledge' and title is a short display name."""
     try:
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=5,
+            max_tokens=48,
             system=CLASSIFY_PROMPT,
             messages=[{"role": "user", "content": request}],
         )
-        result = msg.content[0].text.strip().lower()
-        return "news" if result.startswith("news") else "knowledge"
-    except Exception:
-        return "knowledge"
+        raw = _strip_fences(msg.content[0].text.strip())
+        # If Haiku adds surrounding text, extract the first {...} block
+        if not raw.startswith('{'):
+            m = re.search(r'\{[^}]+\}', raw)
+            raw = m.group() if m else raw
+        data = json.loads(raw)
+        query_type = "news" if str(data.get("type", "")).startswith("news") else "knowledge"
+        title = data.get("title") or None
+        logger.info(f"[classify] type={query_type} title={title!r}")
+        return query_type, title
+    except Exception as e:
+        raw_preview = repr(raw) if 'raw' in dir() else 'n/a'
+        logger.warning(f"[classify] failed ({e}), raw={raw_preview}")
+        return "knowledge", None
 
 
 _KNOWLEDGE_LANG_INSTRUCTIONS: dict = {
@@ -506,8 +510,10 @@ def generate_briefing_stream(req: BriefingRequest):
     now_iso = now.isoformat()
     keyword_trimmed = len(req.request.split()) > 15
 
-    query_type = classify_query(req.request, client)
+    query_type, title = classify_query(req.request, client)
     yield f"event: query_type\ndata: {json.dumps({'type': query_type})}\n\n"
+    if title:
+        yield f"event: title\ndata: {json.dumps({'title': title})}\n\n"
 
     if query_type == "knowledge":
         yield from _stream_knowledge_answer(client, req, now_iso, keyword_trimmed)

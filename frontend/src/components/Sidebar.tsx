@@ -65,7 +65,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
   const startRename = (id: string) => {
     const conv = conversations.find(c => c.id === id);
     setRenamingId(id);
-    setRenameValue(conv?.query ?? '');
+    setRenameValue(conv?.name ?? conv?.query ?? '');
     setMenu(null);
   };
 
@@ -150,7 +150,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
                 onPointerCancel={cancelLongPress}
                 onPointerLeave={cancelLongPress}
               >
-                <span className="sidebar-item-query">{c.query}</span>
+                <span className="sidebar-item-query">{c.name ?? c.query}</span>
                 <span className="sidebar-item-time">{timeLabel(c.timestamp)}</span>
               </button>
             )
