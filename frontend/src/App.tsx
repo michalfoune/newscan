@@ -45,7 +45,7 @@ const MODE_BG: Record<string, string> = {
   brave: '#f0eae4',
 };
 
-function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, generationSeconds, generatedAt, t, apiUrl }: {
+function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, generationSeconds, generatedAt, t, apiUrl, relatedCoverageText }: {
   answer: string;
   streamingAnswer?: string;
   knowledgeCutoff?: string;
@@ -54,12 +54,17 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
   generatedAt?: string;
   t: Translations;
   apiUrl?: string;
+  relatedCoverageText?: string;
 }) {
   const displayText = streamingAnswer ?? answer;
   const time = generatedAt
     ? new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
   const tts = useTTS(apiUrl ?? '');
+  const buildPlayText = () => {
+    const base = stripMarkdown(answer);
+    return relatedCoverageText ? base + ' Related coverage. ' + relatedCoverageText : base;
+  };
   return (
     <section className="briefing-feed">
       <div className="feed-header">
@@ -72,7 +77,7 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
               className="tts-btn"
               style={{ color: MODE_COLORS[mode] }}
               onClick={() => {
-                if (tts.state === 'idle') tts.play(stripMarkdown(answer));
+                if (tts.state === 'idle') tts.play(buildPlayText());
                 else if (tts.state === 'playing') tts.togglePause();
                 else if (tts.state === 'paused') tts.togglePause();
                 else tts.stop();
@@ -688,6 +693,11 @@ export default function App() {
                 generatedAt={response?.generated_at}
                 t={t}
                 apiUrl={API_URL}
+                relatedCoverageText={
+                  response && response.items.length > 0
+                    ? response.items.map(i => `${i.headline}. ${i.summary}${i.why_it_matters ? ' ' + i.why_it_matters : ''}`).join(' ')
+                    : undefined
+                }
               />
               {response && response.items.length > 0 && (
                 <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage apiUrl={API_URL} />
