@@ -339,6 +339,9 @@ _KNOWLEDGE_LANG_INSTRUCTIONS: dict = {
 }
 
 
+_WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+
+
 def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
     """Stream the LLM knowledge answer, yielding k_chunk and k_done SSE events."""
     mode_instruction = _KNOWLEDGE_MODE_INSTRUCTIONS.get(req.mode, _KNOWLEDGE_MODE_INSTRUCTIONS["balanced"])
@@ -348,20 +351,23 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
             model=QUALITY_MODELS["standard"],
             max_tokens=800,
             system=(
-                "You are a knowledgeable assistant. Answer the user's question clearly and concisely from your training knowledge. "
+                "You are a knowledgeable assistant. Answer the user's question clearly and concisely. "
+                "You have real-time web search available — use it proactively for any question that requires "
+                "current or recent information: whether someone is alive, current events, ongoing competitions, "
+                "recent news, or anything that may have changed recently. "
                 "Use markdown formatting: **bold** for key terms, ## for section headings if the answer has multiple sections, "
                 "and bullet lists where appropriate. "
-                "Do not mention that you lack access to real-time data — that disclaimer is shown separately by the app. "
                 f"{mode_instruction} "
                 f"{lang_instruction}"
             ),
             messages=[{"role": "user", "content": req.request}],
+            tools=[_WEB_SEARCH_TOOL],
         ) as stream:
             for chunk in stream.text_stream:
                 yield f"event: k_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
-        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': 'August 2025'})}\n\n"
+        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
     except Exception:
-        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': 'August 2025'})}\n\n"
+        yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
 
 
 def _resolve_meta(
