@@ -259,10 +259,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                       >
                         {isThisTTS && tts.state === 'loading' && <span className="tts-spinner" />}
                         {isThisTTS && tts.state === 'playing'
-                          ? <PauseIcon small />
-                          : (!isThisTTS || tts.state === 'idle') && <PlayIcon small />
+                          ? <PauseIcon />
+                          : (!isThisTTS || tts.state === 'idle') && <PlayIcon />
                         }
-                        {isThisTTS && tts.state === 'paused' && <PlayIcon small />}
+                        {isThisTTS && tts.state === 'paused' && <PlayIcon />}
                       </button>
                     )}
                   </div>
