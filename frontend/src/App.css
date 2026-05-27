@@ -1654,3 +1654,83 @@ textarea::placeholder {
 @keyframes voice-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Sticky nav (mobile only) ─────────────────────────────────── */
+.sticky-nav {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  height: 52px;
+  background: #fff;
+  border-bottom: 1px solid #e5e3de;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-100%);
+  transition: transform 0.2s ease;
+}
+
+.sticky-nav--visible {
+  transform: translateY(0);
+}
+
+.sticky-nav-hamburger {
+  position: absolute;
+  left: 1rem;
+  display: flex !important;
+}
+
+.sticky-nav-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sticky-nav-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+/* ── Scroll-to-bottom button (mobile only) ────────────────────── */
+.scroll-to-bottom-btn {
+  display: none;
+  position: fixed;
+  bottom: 32px;
+  right: 20px;
+  z-index: 190;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+
+.scroll-to-bottom-btn--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .sticky-nav {
+    display: flex;
+  }
+  .scroll-to-bottom-btn {
+    display: flex;
+  }
+}

@@ -345,6 +345,24 @@ export default function App() {
   const [currentQuery, setCurrentQuery] = useState('');
   const [formKey, setFormKey] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const lastScrollY = useRef(0);
+  const [showStickyNav, setShowStickyNav] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const scrollY = window.scrollY;
+      const headerHeight = headerRef.current?.offsetHeight ?? 120;
+      const distFromBottom = document.documentElement.scrollHeight - scrollY - window.innerHeight;
+      const scrollingUp = scrollY < lastScrollY.current;
+      lastScrollY.current = scrollY;
+      setShowStickyNav(scrollY > headerHeight && scrollingUp);
+      setShowScrollDown(distFromBottom > 250);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     if (!loading) { setElapsed(0); return; }
@@ -611,6 +629,26 @@ export default function App() {
 
   return (
     <div className="app" style={{ background: MODE_BG[mode] }}>
+      <div className={`sticky-nav${showStickyNav ? ' sticky-nav--visible' : ''}`}>
+        <button className="sidebar-toggle-btn sticky-nav-hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+            <path d="M0 1h18M0 7h18M0 13h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </button>
+        <span className="sticky-nav-title">
+          <img src="/android-chrome-192x192.png" alt="" className="sticky-nav-icon" />
+          Rizma Brief
+        </span>
+      </div>
+      <button
+        className={`scroll-to-bottom-btn${showScrollDown ? ' scroll-to-bottom-btn--visible' : ''}`}
+        onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+        aria-label="Scroll to bottom"
+      >
+        <svg width="10" height="7" viewBox="0 0 10 7" fill="none">
+          <path d="M1 1.5l4 4 4-4" stroke="#888" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
       <Sidebar
         conversations={conversations}
         activeId={activeId}
@@ -626,7 +664,7 @@ export default function App() {
         onClose={() => setSidebarOpen(false)}
       />
       <div className="app-content">
-        <header className="app-header">
+        <header className="app-header" ref={headerRef}>
           <div className="app-title-row">
             <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">
               <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
