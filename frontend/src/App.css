@@ -1159,7 +1159,7 @@ textarea::placeholder {
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 0.3rem;
-  color: #999;
+  color: #555;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1526,8 +1526,8 @@ textarea::placeholder {
 }
 
 .tts-btn--sm {
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   border-width: 1.2px;
   color: #555;
 }
@@ -1706,8 +1706,8 @@ textarea::placeholder {
   bottom: 32px;
   right: 20px;
   z-index: 190;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: #fff;
   border: none;
