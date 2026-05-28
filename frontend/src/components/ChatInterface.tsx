@@ -388,6 +388,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
         onNext={() => tts.skipChunk(1)}
         onPlayPause={tts.togglePause}
         onStop={() => { tts.stop(); setTtsIdx(null); }}
+        mode={chatMode}
       />
     </div>
   );

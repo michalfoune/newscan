@@ -205,11 +205,11 @@ export function useTTS(apiUrl: string) {
         chunkAbortRef.current = chunkController;
 
         setState('playing');
-        setChunkIdx(i);
         currentPlayRef.current = { text, chunks, idx: i };
 
         await playUrl(url, sessionSignal, chunkController.signal);
         if (sessionSignal.aborted) break;
+        setChunkIdx(i + 1);
       }
     } catch {
       // session AbortError or playback error — handled in finally

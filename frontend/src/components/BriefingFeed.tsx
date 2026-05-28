@@ -189,6 +189,7 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
         onNext={() => tts.skipChunk(1)}
         onPlayPause={tts.togglePause}
         onStop={tts.stop}
+        mode={mode}
       />
     </>
   );

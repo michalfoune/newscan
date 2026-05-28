@@ -1,5 +1,12 @@
+import { Mode } from '../types';
 import { TTSState } from '../hooks/useTTS';
 import { CloseIcon, PauseIcon, PlayIcon, SkipBackIcon, SkipForwardIcon } from './icons';
+
+const MODE_ACCENT: Record<Mode, string> = {
+  calm: '#7b6fd4',
+  balanced: '#4aab73',
+  brave: '#e07040',
+};
 
 interface Props {
   state: TTSState;
@@ -9,20 +16,22 @@ interface Props {
   onNext: () => void;
   onPlayPause: () => void;
   onStop: () => void;
+  mode?: Mode;
 }
 
-export function TTSPlayerBar({ state, chunkIdx, totalChunks, onPrev, onNext, onPlayPause, onStop }: Props) {
+export function TTSPlayerBar({ state, chunkIdx, totalChunks, onPrev, onNext, onPlayPause, onStop, mode }: Props) {
   if (state === 'idle') return null;
 
   const isLoading = state === 'loading';
   const canPrev = chunkIdx > 0 && !isLoading;
   const canNext = chunkIdx < totalChunks - 1 && !isLoading;
-  const progress = totalChunks > 0 ? ((chunkIdx + 1) / totalChunks) * 100 : 0;
+  const progress = totalChunks > 0 ? (chunkIdx / totalChunks) * 100 : 0;
+  const accent = MODE_ACCENT[mode ?? 'calm'];
 
   return (
     <div className="tts-player-bar">
       <div className="tts-player-progress">
-        <div className="tts-player-progress-fill" style={{ width: `${progress}%` }} />
+        <div className="tts-player-progress-fill" style={{ width: `${progress}%`, background: accent }} />
       </div>
       <div className="tts-player-controls">
         <button

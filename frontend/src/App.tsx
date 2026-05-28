@@ -109,6 +109,7 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
         onNext={() => tts.skipChunk(1)}
         onPlayPause={tts.togglePause}
         onStop={tts.stop}
+        mode={mode}
       />
     </section>
   );
