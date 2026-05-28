@@ -6,8 +6,9 @@ import { Sidebar } from './components/Sidebar';
 import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, QueryType, ThreadItem } from './types';
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown, stripMarkdown } from './utils/markdown';
-import { useTTS } from './hooks/useTTS';
-import { PauseIcon, PlayIcon } from './components/icons';
+import { TTSProvider, useTTSContext } from './contexts/TTSContext';
+import { HamburgerIcon, PlayIcon, SettingsIcon } from './components/icons';
+import { TTSPlayerBar } from './components/TTSPlayerBar';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -60,7 +61,7 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
   const time = generatedAt
     ? new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
-  const tts = useTTS(apiUrl ?? '');
+  const { state, play } = useTTSContext();
   const buildPlayText = () => {
     const base = stripMarkdown(answer);
     return relatedCoverageText ? base + ' Related coverage. ' + relatedCoverageText : base;
@@ -72,21 +73,14 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
           <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
             {t.modeLabels[mode]}
           </span>
-          {apiUrl && answer && !streamingAnswer && (
+          {apiUrl && answer && !streamingAnswer && state === 'idle' && (
             <button
               className="tts-btn"
               style={{ color: MODE_COLORS[mode] }}
-              onClick={() => {
-                if (tts.state === 'idle' || tts.state === 'failed') tts.play(buildPlayText());
-                else if (tts.state === 'playing') tts.togglePause();
-                else if (tts.state === 'paused') tts.togglePause();
-                else tts.stop();
-              }}
-              title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
+              onClick={() => play(buildPlayText(), 'knowledge', mode)}
+              title="Listen"
             >
-              {tts.state === 'loading' && <span className="tts-spinner" />}
-              {(tts.state === 'idle' || tts.state === 'paused' || tts.state === 'failed') && <PlayIcon />}
-              {tts.state === 'playing' && <PauseIcon />}
+              <PlayIcon />
             </button>
           )}
         </div>
@@ -316,6 +310,22 @@ function loadConversations(): Conversation[] {
   } catch {
     return [];
   }
+}
+
+function ConnectedTTSPlayerBar() {
+  const { state, chunkIdx, totalChunks, currentMode, skipChunk, togglePause, stop } = useTTSContext();
+  return (
+    <TTSPlayerBar
+      state={state}
+      chunkIdx={chunkIdx}
+      totalChunks={totalChunks}
+      onPrev={() => skipChunk(-1)}
+      onNext={() => skipChunk(1)}
+      onPlayPause={togglePause}
+      onStop={stop}
+      mode={currentMode ?? undefined}
+    />
+  );
 }
 
 export default function App() {
@@ -630,12 +640,11 @@ export default function App() {
   const chatContext = response ? buildChatContext(currentQuery, response, thread) : '';
 
   return (
+    <TTSProvider apiUrl={API_URL}>
     <div className="app" style={{ background: MODE_BG[mode] }}>
       <div className={`sticky-nav${showStickyNav ? ' sticky-nav--visible' : ''}`}>
         <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">
-          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-            <path d="M0 1h18M0 7h18M0 13h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
+          <HamburgerIcon />
         </button>
         <span className="sticky-nav-title">
           <img src="/android-chrome-192x192.png" alt="" className="sticky-nav-icon" />
@@ -647,10 +656,7 @@ export default function App() {
             onClick={() => setSettingsOpen(o => !o)}
             aria-label="Settings"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-            </svg>
+            <SettingsIcon />
           </button>
           {settingsOpen && showStickyNav && (
             <SettingsPopover
@@ -833,5 +839,7 @@ export default function App() {
         </main>
       </div>
     </div>
+    <ConnectedTTSPlayerBar />
+    </TTSProvider>
   );
 }

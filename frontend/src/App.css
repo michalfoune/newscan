@@ -1694,6 +1694,111 @@ textarea::placeholder {
   border-radius: 5px;
 }
 
+/* ── TTS player bar ──────────────────────────────────────────── */
+.tts-player-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 150;
+  background: #1c1c1e;
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 180px;
+}
+
+.tts-player-progress {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  width: 100%;
+}
+
+.tts-player-progress-fill {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.tts-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.25rem 0.9rem 0.4rem;
+}
+
+.tts-player-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tts-player-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.tts-player-btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.tts-player-btn--main {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.tts-player-btn--main:hover:not(.tts-player-btn--pulsing) {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+@keyframes tts-spin {
+  to { transform: rotate(360deg); }
+}
+
+.tts-player-btn--pulsing {
+  position: relative;
+  overflow: visible;
+  cursor: default;
+}
+
+.tts-player-btn--pulsing::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  animation: tts-spin 0.75s linear infinite;
+  pointer-events: none;
+}
+
+.tts-player-btn--close {
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: 0.35rem;
+}
+
+.tts-player-btn--close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
 /* ── Scroll-to-bottom button (mobile only) ────────────────────── */
 .scroll-to-bottom-btn {
   display: none;
