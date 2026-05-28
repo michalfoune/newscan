@@ -77,7 +77,7 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
               className="tts-btn"
               style={{ color: MODE_COLORS[mode] }}
               onClick={() => {
-                if (tts.state === 'idle') tts.play(buildPlayText());
+                if (tts.state === 'idle' || tts.state === 'failed') tts.play(buildPlayText());
                 else if (tts.state === 'playing') tts.togglePause();
                 else if (tts.state === 'paused') tts.togglePause();
                 else tts.stop();
@@ -85,7 +85,7 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
               title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
             >
               {tts.state === 'loading' && <span className="tts-spinner" />}
-              {(tts.state === 'idle' || tts.state === 'paused') && <PlayIcon />}
+              {(tts.state === 'idle' || tts.state === 'paused' || tts.state === 'failed') && <PlayIcon />}
               {tts.state === 'playing' && <PauseIcon />}
             </button>
           )}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export type TTSState = 'idle' | 'loading' | 'playing' | 'paused';
+export type TTSState = 'idle' | 'loading' | 'playing' | 'paused' | 'failed';
 
 function splitSentences(text: string): string[] {
   // Split on sentence endings and natural pause points including semicolons and em-dashes
@@ -49,6 +49,7 @@ export function useTTS(apiUrl: string) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const resumeRef = useRef<{ text: string; chunks: string[]; idx: number } | null>(null);
 
   function getAudio(): HTMLAudioElement {
     if (!audioRef.current) audioRef.current = new Audio();
@@ -74,6 +75,7 @@ export function useTTS(apiUrl: string) {
 
   const stop = () => {
     cleanup();
+    resumeRef.current = null;
     setState('idle');
   };
 
@@ -124,30 +126,53 @@ export function useTTS(apiUrl: string) {
   };
 
   const play = async (text: string) => {
+    // Resume from failure if same text, otherwise start fresh
+    let startIdx = 0;
+    let chunks: string[];
+    if (resumeRef.current && resumeRef.current.text === text) {
+      startIdx = resumeRef.current.idx;
+      chunks = resumeRef.current.chunks;
+    } else {
+      chunks = splitSentences(text);
+      resumeRef.current = null;
+    }
+
     cleanup();
+
+    // Unlock audio element for iOS Safari — must happen synchronously within the user gesture,
+    // before any async work consumes the gesture token.
+    const audio = getAudio();
+    audio.play().catch(() => {});
+    audio.pause();
+
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;
 
     setState('loading');
 
-    const chunks = splitSentences(text);
-    if (chunks.length === 0) { setState('idle'); return; }
+    if (chunks.length === 0 || startIdx >= chunks.length) { setState('idle'); return; }
 
+    let networkFailed = false;
     try {
-      // Pre-fetch first two chunks immediately to build a buffer
+      // Pre-fetch two chunks ahead from the start index
       const pending: Promise<string | null>[] = [];
-      pending.push(fetchAudioUrl(chunks[0], signal));
-      if (chunks.length > 1) pending.push(fetchAudioUrl(chunks[1], signal));
+      pending.push(fetchAudioUrl(chunks[startIdx], signal));
+      if (startIdx + 1 < chunks.length) pending.push(fetchAudioUrl(chunks[startIdx + 1], signal));
 
-      for (let i = 0; i < chunks.length; i++) {
-        // Always stay two chunks ahead
+      for (let i = startIdx; i < chunks.length; i++) {
+        const pi = i - startIdx;
         if (i + 2 < chunks.length) {
           pending.push(fetchAudioUrl(chunks[i + 2], signal));
         }
 
-        const url = await pending[i];
-        if (!url || signal.aborted) break;
+        const url = await pending[pi];
+        if (signal.aborted) break;
+        if (!url) {
+          resumeRef.current = { text, chunks, idx: i };
+          networkFailed = true;
+          break;
+        }
 
         setState('playing');
         await playUrl(url, signal);
@@ -157,7 +182,12 @@ export function useTTS(apiUrl: string) {
       // AbortError or playback error
     } finally {
       cleanup();
-      setState('idle');
+      if (networkFailed) {
+        setState('failed');
+      } else {
+        resumeRef.current = null;
+        setState('idle');
+      }
     }
   };
 
