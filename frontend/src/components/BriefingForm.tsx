@@ -116,7 +116,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               {voiceState === 'processing' && (
                 <>
                   <div className="voice-spinner" />
-                  <span className="voice-label">Processing…</span>
+                  <span className="voice-label">Transcribing…</span>
                 </>
               )}
               {voiceState === 'error' && (

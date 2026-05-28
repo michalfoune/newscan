@@ -6,7 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, QueryType, ThreadItem } from './types';
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown, stripMarkdown } from './utils/markdown';
-import { useTTS } from './hooks/useTTS';
+import { TTSProvider, useTTSContext } from './contexts/TTSContext';
 import { HamburgerIcon, PlayIcon, SettingsIcon } from './components/icons';
 import { TTSPlayerBar } from './components/TTSPlayerBar';
 import './App.css';
@@ -61,7 +61,7 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
   const time = generatedAt
     ? new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
-  const tts = useTTS(apiUrl ?? '');
+  const { state, play } = useTTSContext();
   const buildPlayText = () => {
     const base = stripMarkdown(answer);
     return relatedCoverageText ? base + ' Related coverage. ' + relatedCoverageText : base;
@@ -73,11 +73,11 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
           <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
             {t.modeLabels[mode]}
           </span>
-          {apiUrl && answer && !streamingAnswer && tts.state === 'idle' && (
+          {apiUrl && answer && !streamingAnswer && state === 'idle' && (
             <button
               className="tts-btn"
               style={{ color: MODE_COLORS[mode] }}
-              onClick={() => tts.play(buildPlayText())}
+              onClick={() => play(buildPlayText(), 'knowledge', mode)}
               title="Listen"
             >
               <PlayIcon />
@@ -94,16 +94,6 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
           <p className="ai-fallback-notice">Knowledge cutoff: {knowledgeCutoff}. This response is not based on current news.</p>
         )}
       </div>
-      <TTSPlayerBar
-        state={tts.state}
-        chunkIdx={tts.chunkIdx}
-        totalChunks={tts.totalChunks}
-        onPrev={() => tts.skipChunk(-1)}
-        onNext={() => tts.skipChunk(1)}
-        onPlayPause={tts.togglePause}
-        onStop={tts.stop}
-        mode={mode}
-      />
     </section>
   );
 }
@@ -320,6 +310,22 @@ function loadConversations(): Conversation[] {
   } catch {
     return [];
   }
+}
+
+function ConnectedTTSPlayerBar() {
+  const { state, chunkIdx, totalChunks, currentMode, skipChunk, togglePause, stop } = useTTSContext();
+  return (
+    <TTSPlayerBar
+      state={state}
+      chunkIdx={chunkIdx}
+      totalChunks={totalChunks}
+      onPrev={() => skipChunk(-1)}
+      onNext={() => skipChunk(1)}
+      onPlayPause={togglePause}
+      onStop={stop}
+      mode={currentMode ?? undefined}
+    />
+  );
 }
 
 export default function App() {
@@ -634,6 +640,7 @@ export default function App() {
   const chatContext = response ? buildChatContext(currentQuery, response, thread) : '';
 
   return (
+    <TTSProvider apiUrl={API_URL}>
     <div className="app" style={{ background: MODE_BG[mode] }}>
       <div className={`sticky-nav${showStickyNav ? ' sticky-nav--visible' : ''}`}>
         <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">
@@ -832,5 +839,7 @@ export default function App() {
         </main>
       </div>
     </div>
+    <ConnectedTTSPlayerBar />
+    </TTSProvider>
   );
 }

@@ -4,10 +4,9 @@ import { Translations } from '../translations';
 import { BriefingFeed } from './BriefingFeed';
 import { renderMarkdown } from '../utils/markdown';
 import { useVoiceInput } from '../hooks/useVoiceInput';
-import { useTTS } from '../hooks/useTTS';
+import { useTTSContext } from '../contexts/TTSContext';
 import { stripMarkdown } from '../utils/markdown';
 import { CloseIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
-import { TTSPlayerBar } from './TTSPlayerBar';
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
@@ -42,23 +41,16 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [fetchElapsed, setFetchElapsed] = useState(0);
 
-  const tts = useTTS(apiUrl);
-  const [ttsIdx, setTtsIdx] = useState<number | null>(null);
-
-  // Clear ttsIdx when playback finishes or is stopped (but not on failure — keep it set so bar stays)
-  useEffect(() => {
-    if (tts.state === 'idle') setTtsIdx(null);
-  }, [tts.state]);
+  const { state: ttsState, currentSource, play: ttsPlay, stop: ttsStop, togglePause: ttsTogglePause } = useTTSContext();
 
   const handleTTS = (content: string, idx: number) => {
-    if (ttsIdx === idx && tts.state === 'loading') {
-      tts.stop();
-      setTtsIdx(null);
-    } else if (ttsIdx === idx && (tts.state === 'playing' || tts.state === 'paused')) {
-      tts.togglePause();
+    const source = `chat-${idx}`;
+    if (currentSource === source && ttsState === 'loading') {
+      ttsStop();
+    } else if (currentSource === source && (ttsState === 'playing' || ttsState === 'paused')) {
+      ttsTogglePause();
     } else {
-      setTtsIdx(idx);
-      tts.play(stripMarkdown(content));
+      ttsPlay(stripMarkdown(content), source, chatMode);
     }
   };
 
@@ -237,7 +229,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
         <div className="chat-thread">
           {thread.map((item, i) => {
             if (item.type === 'message') {
-              const isThisTTS = ttsIdx === i;
               const isLastAssistant = i === lastAssistantIdx && !sending;
               return (
                 <div key={i} className={`chat-msg-wrap chat-msg-wrap--${item.role}`}>
@@ -253,7 +244,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                     >
                       <CopyIcon size={21} />
                     </button>
-                    {item.role === 'assistant' && (!isThisTTS || tts.state === 'idle') && (
+                    {item.role === 'assistant' && ttsState === 'idle' && (
                       <button
                         type="button"
                         className="hover-action-btn tts-btn tts-btn--sm"
@@ -322,7 +313,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               {voiceState === 'processing' && (
                 <>
                   <div className="voice-spinner" />
-                  <span className="voice-label">Processing…</span>
+                  <span className="voice-label">Transcribing…</span>
                 </>
               )}
               {voiceState === 'error' && (
@@ -375,16 +366,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           </div>
         )}
       </div>
-      <TTSPlayerBar
-        state={tts.state}
-        chunkIdx={tts.chunkIdx}
-        totalChunks={tts.totalChunks}
-        onPrev={() => tts.skipChunk(-1)}
-        onNext={() => tts.skipChunk(1)}
-        onPlayPause={tts.togglePause}
-        onStop={() => { tts.stop(); setTtsIdx(null); }}
-        mode={chatMode}
-      />
     </div>
   );
 }

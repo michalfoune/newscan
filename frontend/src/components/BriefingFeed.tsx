@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
-import { useTTS } from '../hooks/useTTS';
+import { useTTSContext } from '../contexts/TTSContext';
 import { stripMarkdown } from '../utils/markdown';
 import { PlayIcon } from './icons';
-import { TTSPlayerBar } from './TTSPlayerBar';
 
 const MODE_COLORS: Record<Mode, string> = {
   calm: '#4838a8',
@@ -77,12 +76,6 @@ interface Props {
   apiUrl?: string;
 }
 
-const MODE_COLORS_HEX: Record<Mode, string> = {
-  calm: '#4838a8',
-  balanced: '#2e7d4f',
-  brave: '#e07040',
-};
-
 function buildBriefText(response: BriefingResponse): string {
   const parts: string[] = [];
   if (response.overall_summary) parts.push(response.overall_summary);
@@ -97,7 +90,7 @@ const INITIAL_VISIBLE = 2;
 
 export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false, apiUrl }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const tts = useTTS(apiUrl ?? '');
+  const { state, play } = useTTSContext();
 
   const time = new Date(response.generated_at).toLocaleTimeString([], {
     hour: '2-digit',
@@ -108,82 +101,70 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
   const hasMore = response.items.length > INITIAL_VISIBLE;
 
   return (
-    <>
-      <section className="briefing-feed">
-        <div className="feed-header">
-          <div className="feed-header-left">
-            {relatedCoverage
-              ? <span className="feed-related-label">Related coverage</span>
-              : <>
-                  <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
-                    {t.modeLabels[mode]}
-                  </span>
-                  <span className="feed-count">{t.stories(response.items.length)}</span>
-                  {apiUrl && response.items.length > 0 && tts.state === 'idle' && (
-                    <button
-                      className="tts-btn"
-                      style={{ color: MODE_COLORS_HEX[mode] }}
-                      onClick={() => tts.play(stripMarkdown(buildBriefText(response)))}
-                      title="Listen"
-                    >
-                      <PlayIcon />
-                    </button>
-                  )}
-                </>
-            }
-          </div>
-          {!relatedCoverage && (
-            <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
-          )}
+    <section className="briefing-feed">
+      <div className="feed-header">
+        <div className="feed-header-left">
+          {relatedCoverage
+            ? <span className="feed-related-label">Related coverage</span>
+            : <>
+                <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
+                  {t.modeLabels[mode]}
+                </span>
+                <span className="feed-count">{t.stories(response.items.length)}</span>
+                {apiUrl && response.items.length > 0 && state === 'idle' && (
+                  <button
+                    className="tts-btn"
+                    style={{ color: MODE_COLORS[mode] }}
+                    onClick={() => play(stripMarkdown(buildBriefText(response)), 'briefing', mode)}
+                    title="Listen"
+                  >
+                    <PlayIcon />
+                  </button>
+                )}
+              </>
+          }
         </div>
-
-        {response.overall_summary && (
-          <div className="overall-summary">
-            <p className="overall-summary-label">{t.overallSummaryLabel}</p>
-            <p className="overall-summary-text">{response.overall_summary}</p>
-          </div>
+        {!relatedCoverage && (
+          <span className="feed-time">{t.generatedAt(time)}{generationSeconds != null ? ` (${generationSeconds}s)` : ''}</span>
         )}
+      </div>
 
-        <div className="feed-grid">
-          {visibleItems.map((item, i) => (
-            <FeedItem key={i} item={item} t={t} />
-          ))}
+      {response.overall_summary && (
+        <div className="overall-summary">
+          <p className="overall-summary-label">{t.overallSummaryLabel}</p>
+          <p className="overall-summary-text">{response.overall_summary}</p>
         </div>
+      )}
 
-        {hasMore && (
-          <div className="feed-see-more">
-            <button className="feed-see-more-btn" onClick={() => setExpanded(!expanded)}>
-              {expanded ? 'Show less' : `See more news (${response.items.length - INITIAL_VISIBLE} more)`}
-            </button>
-          </div>
-        )}
+      <div className="feed-grid">
+        {visibleItems.map((item, i) => (
+          <FeedItem key={i} item={item} t={t} />
+        ))}
+      </div>
 
-        {showKeywords && response.topics && response.topics.length > 0 && (
-          <div className="feed-trimmed-notice">
-            <p className="feed-missing-topics">Searched for:</p>
-            <div className="feed-topic-tags">
-              {response.topics.map((topic, i) => (
-                <span key={i} className="feed-topic-tag">{topic}</span>
-              ))}
-            </div>
+      {hasMore && (
+        <div className="feed-see-more">
+          <button className="feed-see-more-btn" onClick={() => setExpanded(!expanded)}>
+            {expanded ? 'Show less' : `See more news (${response.items.length - INITIAL_VISIBLE} more)`}
+          </button>
+        </div>
+      )}
+
+      {showKeywords && response.topics && response.topics.length > 0 && (
+        <div className="feed-trimmed-notice">
+          <p className="feed-missing-topics">Searched for:</p>
+          <div className="feed-topic-tags">
+            {response.topics.map((topic, i) => (
+              <span key={i} className="feed-topic-tag">{topic}</span>
+            ))}
           </div>
-        )}
-        {response.missing_topics.length > 0 && (
-          <p className="feed-missing-topics">
-            No articles found for: {response.missing_topics.join(', ')}
-          </p>
-        )}
-      </section>
-      <TTSPlayerBar
-        state={tts.state}
-        chunkIdx={tts.chunkIdx}
-        totalChunks={tts.totalChunks}
-        onPrev={() => tts.skipChunk(-1)}
-        onNext={() => tts.skipChunk(1)}
-        onPlayPause={tts.togglePause}
-        onStop={tts.stop}
-        mode={mode}
-      />
-    </>
+        </div>
+      )}
+      {response.missing_topics.length > 0 && (
+        <p className="feed-missing-topics">
+          No articles found for: {response.missing_topics.join(', ')}
+        </p>
+      )}
+    </section>
   );
 }
