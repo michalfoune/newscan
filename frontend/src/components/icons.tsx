@@ -1,7 +1,7 @@
 export function PlayIcon() {
   return (
-    <svg width="11" height="12" viewBox="0 0 14 13" fill="currentColor">
-      <polygon points="3.5,1 13.5,6.5 3.5,12" />
+    <svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor">
+      <polygon points="2.5,1 10.5,6.5 2.5,12" />
     </svg>
   );
 }
