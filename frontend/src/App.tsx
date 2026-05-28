@@ -212,7 +212,6 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
             onChange={e => onChange(e.target.value)}
             placeholder="e.g. Keep summaries short. Avoid political news."
             rows={4}
-            autoFocus
           />
         </div>
       </>}
@@ -349,9 +348,12 @@ export default function App() {
   const lastScrollY = useRef(0);
   const [showStickyNav, setShowStickyNav] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const settingsOpenRef = useRef(false);
+  useEffect(() => { settingsOpenRef.current = settingsOpen; }, [settingsOpen]);
 
   useEffect(() => {
     const onScroll = () => {
+      if (settingsOpenRef.current) return;
       const scrollY = window.scrollY;
       const headerHeight = headerRef.current?.offsetHeight ?? 120;
       const distFromBottom = document.documentElement.scrollHeight - scrollY - window.innerHeight;
