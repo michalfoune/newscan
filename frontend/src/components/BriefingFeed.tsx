@@ -4,6 +4,7 @@ import { Translations } from '../translations';
 import { useTTS } from '../hooks/useTTS';
 import { stripMarkdown } from '../utils/markdown';
 import { PauseIcon, PlayIcon } from './icons';
+import { TTSPlayerBar } from './TTSPlayerBar';
 
 const MODE_COLORS: Record<Mode, string> = {
   calm: '#4838a8',
@@ -123,17 +124,16 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
                       className="tts-btn"
                       style={{ color: MODE_COLORS_HEX[mode] }}
                       onClick={() => {
-                        if (tts.state === 'idle') tts.play(stripMarkdown(buildBriefText(response)));
+                        if (tts.state === 'idle' || tts.state === 'failed') tts.play(stripMarkdown(buildBriefText(response)));
                         else if (tts.state === 'playing') tts.togglePause();
                         else if (tts.state === 'paused') tts.togglePause();
-                        else if (tts.state === 'loading') tts.stop();
+                        else tts.stop();
                       }}
                       title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
                     >
                       {tts.state === 'loading' && <span className="tts-spinner" />}
-                      {tts.state === 'idle' && <PlayIcon />}
+                      {(tts.state === 'idle' || tts.state === 'paused' || tts.state === 'failed') && <PlayIcon />}
                       {tts.state === 'playing' && <PauseIcon />}
-                      {tts.state === 'paused' && <PlayIcon />}
                     </button>
                   )}
                 </>
@@ -181,7 +181,15 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
           </p>
         )}
       </section>
-
+      <TTSPlayerBar
+        state={tts.state}
+        chunkIdx={tts.chunkIdx}
+        totalChunks={tts.totalChunks}
+        onPrev={() => tts.skipChunk(-1)}
+        onNext={() => tts.skipChunk(1)}
+        onPlayPause={tts.togglePause}
+        onStop={tts.stop}
+      />
     </>
   );
 }

@@ -1694,6 +1694,89 @@ textarea::placeholder {
   border-radius: 5px;
 }
 
+/* ── TTS player bar ──────────────────────────────────────────── */
+.tts-player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 150;
+  background: #fff;
+  border-top: 1px solid #e5e3de;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.tts-player-progress {
+  height: 3px;
+  background: #eee;
+  width: 100%;
+}
+
+.tts-player-progress-fill {
+  height: 100%;
+  background: #4838a8;
+  transition: width 0.3s ease;
+}
+
+.tts-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 52px;
+  padding: 0 1rem;
+}
+
+.tts-player-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  color: #555;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tts-player-btn:hover:not(:disabled) {
+  background: #f0eeea;
+  color: #1a1a1a;
+}
+
+.tts-player-btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.tts-player-btn--main {
+  width: 40px;
+  height: 40px;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.tts-player-btn--main:hover:not(:disabled) {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.tts-player-btn--close {
+  color: #aaa;
+  margin-left: 0.75rem;
+}
+
+.tts-player-btn--close:hover:not(:disabled) {
+  color: #555;
+  background: #f0eeea;
+}
+
 /* ── Scroll-to-bottom button (mobile only) ────────────────────── */
 .scroll-to-bottom-btn {
   display: none;

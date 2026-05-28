@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 import { useVoiceInput } from '../hooks/useVoiceInput';
+import { CloseIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
@@ -71,11 +72,11 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
         <div className="hover-actions">
           <button type="button" className="hover-action-btn" data-tooltip={copied ? 'Copied!' : 'Copy'}
             onClick={(e) => { e.stopPropagation(); copyQuery(); }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><path d="M2 9V2h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <CopyIcon />
           </button>
           <button type="button" className="hover-action-btn" data-tooltip="Edit"
             onClick={() => setCollapsed(false)}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <EditIcon />
           </button>
         </div>
       </div>
@@ -103,7 +104,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
         {voiceState !== 'idle' ? (
           <div className="query-box-footer query-box-footer--voice">
             <button type="button" className="voice-cancel-btn" onClick={cancelVoice} title="Cancel">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><path d="M1 1l9 9M10 1L1 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              <CloseIcon />
             </button>
             <div className="voice-indicator">
               {voiceState === 'recording' && (
@@ -128,7 +129,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               onClick={voiceState === 'recording' ? stopRecording : undefined}
               disabled={voiceState !== 'recording'}
             >
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <SubmitArrowIcon />
             </button>
           </div>
         ) : (
@@ -140,11 +141,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               disabled={loading}
               title="Voice input"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <rect x="5.5" y="1" width="5" height="9" rx="2.5" stroke="currentColor" strokeWidth="1.4"/>
-                <path d="M2.5 8a5.5 5.5 0 0011 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                <line x1="8" y1="14" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-              </svg>
+              <MicIcon />
             </button>
             <div className="query-box-actions">
               <div className="mode-buttons">
@@ -163,11 +160,11 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               </div>
               {loading ? (
                 <button type="button" className="query-submit-btn query-submit-btn--stop" onClick={onCancel}>
-                  <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2"/></svg>
+                  <StopSquareIcon />
                 </button>
               ) : (
                 <button type="submit" className="query-submit-btn" disabled={!request.trim()}>
-                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h11M9 3l4 4.5L9 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <SubmitArrowIcon />
                 </button>
               )}
             </div>

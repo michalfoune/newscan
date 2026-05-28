@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 export type TTSState = 'idle' | 'loading' | 'playing' | 'paused' | 'failed';
 
 function splitSentences(text: string): string[] {
-  // Split on sentence endings and natural pause points including semicolons and em-dashes
   const raw = text.split(/(?<=[.!?;])\s+|(?<=—)\s+/).filter(Boolean);
   const chunks: string[] = [];
   let buf = '';
@@ -23,7 +22,6 @@ function splitSentences(text: string): string[] {
   }
   if (buf.trim()) chunks.push(buf.trim());
 
-  // Hard-break any chunk still over 280 chars (no sentence ending found) at a word boundary
   const result: string[] = [];
   for (const chunk of chunks) {
     if (chunk.length <= 280) {
@@ -45,11 +43,16 @@ function splitSentences(text: string): string[] {
 
 export function useTTS(apiUrl: string) {
   const [state, setState] = useState<TTSState>('idle');
-  // Single reused audio element — required for iOS Safari autoplay chaining
+  const [chunkIdx, setChunkIdx] = useState(0);
+  const [totalChunks, setTotalChunks] = useState(0);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const sessionAbortRef = useRef<AbortController | null>(null);
+  const chunkAbortRef = useRef<AbortController | null>(null);
   const resumeRef = useRef<{ text: string; chunks: string[]; idx: number } | null>(null);
+  const currentPlayRef = useRef<{ text: string; chunks: string[]; idx: number } | null>(null);
+  const generationRef = useRef(0);
 
   function getAudio(): HTMLAudioElement {
     if (!audioRef.current) audioRef.current = new Audio();
@@ -57,8 +60,10 @@ export function useTTS(apiUrl: string) {
   }
 
   const cleanup = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
+    sessionAbortRef.current?.abort();
+    sessionAbortRef.current = null;
+    chunkAbortRef.current?.abort();
+    chunkAbortRef.current = null;
     if (audioRef.current) {
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
@@ -76,6 +81,9 @@ export function useTTS(apiUrl: string) {
   const stop = () => {
     cleanup();
     resumeRef.current = null;
+    currentPlayRef.current = null;
+    setChunkIdx(0);
+    setTotalChunks(0);
     setState('idle');
   };
 
@@ -107,26 +115,36 @@ export function useTTS(apiUrl: string) {
     return null;
   };
 
-  const playUrl = (url: string, signal: AbortSignal): Promise<void> => {
+  const playUrl = (url: string, sessionSignal: AbortSignal, chunkSignal: AbortSignal): Promise<void> => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = url;
     const audio = getAudio();
 
     return new Promise((resolve, reject) => {
-      const onAbort = () => { audio.pause(); reject(new DOMException('Aborted', 'AbortError')); };
-      signal.addEventListener('abort', onAbort, { once: true });
-      audio.onended = () => { signal.removeEventListener('abort', onAbort); resolve(); };
-      audio.onerror = () => { signal.removeEventListener('abort', onAbort); reject(new Error('Audio error')); };
+      const removeListeners = () => {
+        sessionSignal.removeEventListener('abort', onSessionAbort);
+        chunkSignal.removeEventListener('abort', onChunkAbort);
+      };
+      // Session abort = stop everything
+      const onSessionAbort = () => { removeListeners(); audio.pause(); reject(new DOMException('Aborted', 'AbortError')); };
+      // Chunk abort = skip: resolve so the loop advances to the next chunk
+      const onChunkAbort = () => { removeListeners(); audio.pause(); resolve(); };
+
+      sessionSignal.addEventListener('abort', onSessionAbort);
+      chunkSignal.addEventListener('abort', onChunkAbort);
 
       // Set src and call load() before play() — critical for iOS Safari when reusing element
       audio.src = url;
       audio.load();
+      audio.onended = () => { removeListeners(); resolve(); };
+      audio.onerror = () => { removeListeners(); reject(new Error('Audio error')); };
       audio.play().catch(reject);
     });
   };
 
   const play = async (text: string) => {
-    // Resume from failure if same text, otherwise start fresh
+    const gen = ++generationRef.current;
+
     let startIdx = 0;
     let chunks: string[];
     if (resumeRef.current && resumeRef.current.text === text) {
@@ -139,54 +157,72 @@ export function useTTS(apiUrl: string) {
 
     cleanup();
 
-    // Unlock audio element for iOS Safari — must happen synchronously within the user gesture,
+    // Unlock audio for iOS Safari — must happen synchronously within the user gesture,
     // before any async work consumes the gesture token.
     const audio = getAudio();
     audio.play().catch(() => {});
     audio.pause();
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const { signal } = controller;
+    const sessionController = new AbortController();
+    sessionAbortRef.current = sessionController;
+    const { signal: sessionSignal } = sessionController;
 
     setState('loading');
+    setTotalChunks(chunks.length);
+    setChunkIdx(startIdx);
+    currentPlayRef.current = { text, chunks, idx: startIdx };
 
-    if (chunks.length === 0 || startIdx >= chunks.length) { setState('idle'); return; }
+    if (chunks.length === 0 || startIdx >= chunks.length) {
+      if (gen === generationRef.current) { currentPlayRef.current = null; setState('idle'); }
+      return;
+    }
 
     let networkFailed = false;
     try {
-      // Pre-fetch two chunks ahead from the start index
+      // Pre-fetch first two chunks from startIdx to build a buffer
       const pending: Promise<string | null>[] = [];
-      pending.push(fetchAudioUrl(chunks[startIdx], signal));
-      if (startIdx + 1 < chunks.length) pending.push(fetchAudioUrl(chunks[startIdx + 1], signal));
+      pending.push(fetchAudioUrl(chunks[startIdx], sessionSignal));
+      if (startIdx + 1 < chunks.length) pending.push(fetchAudioUrl(chunks[startIdx + 1], sessionSignal));
 
       for (let i = startIdx; i < chunks.length; i++) {
         const pi = i - startIdx;
+
         if (i + 2 < chunks.length) {
-          pending.push(fetchAudioUrl(chunks[i + 2], signal));
+          pending.push(fetchAudioUrl(chunks[i + 2], sessionSignal));
         }
 
         const url = await pending[pi];
-        if (signal.aborted) break;
+        if (sessionSignal.aborted) break;
         if (!url) {
           resumeRef.current = { text, chunks, idx: i };
           networkFailed = true;
           break;
         }
 
+        // Per-chunk controller: aborting it skips this chunk without ending the session
+        chunkAbortRef.current?.abort();
+        const chunkController = new AbortController();
+        chunkAbortRef.current = chunkController;
+
         setState('playing');
-        await playUrl(url, signal);
-        if (signal.aborted) break;
+        setChunkIdx(i);
+        currentPlayRef.current = { text, chunks, idx: i };
+
+        await playUrl(url, sessionSignal, chunkController.signal);
+        if (sessionSignal.aborted) break;
       }
     } catch {
-      // AbortError or playback error
+      // session AbortError or playback error — handled in finally
     } finally {
-      cleanup();
-      if (networkFailed) {
-        setState('failed');
-      } else {
-        resumeRef.current = null;
-        setState('idle');
+      if (gen === generationRef.current) {
+        cleanup();
+        currentPlayRef.current = null;
+        if (networkFailed) {
+          setState('failed');
+        } else {
+          resumeRef.current = null;
+          setState('idle');
+        }
       }
     }
   };
@@ -203,5 +239,14 @@ export function useTTS(apiUrl: string) {
     }
   };
 
-  return { state, play, stop, togglePause };
+  // Skip forward or backward by delta chunks; restarts playback from the new position
+  const skipChunk = (delta: number) => {
+    if (!currentPlayRef.current) return;
+    const { text, chunks, idx } = currentPlayRef.current;
+    const newIdx = Math.max(0, Math.min(chunks.length - 1, idx + delta));
+    resumeRef.current = { text, chunks, idx: newIdx };
+    play(text);
+  };
+
+  return { state, chunkIdx, totalChunks, play, stop, togglePause, skipChunk };
 }
