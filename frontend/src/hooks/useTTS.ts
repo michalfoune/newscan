@@ -207,9 +207,12 @@ export function useTTS(apiUrl: string) {
         setState('playing');
         currentPlayRef.current = { text, chunks, idx: i };
 
+        // Advance to 100% when the last chunk starts so the bar completes before it finishes
+        if (i === chunks.length - 1) setChunkIdx(chunks.length);
+
         await playUrl(url, sessionSignal, chunkController.signal);
         if (sessionSignal.aborted) break;
-        setChunkIdx(i + 1);
+        if (i < chunks.length - 1) setChunkIdx(i + 1);
       }
     } catch {
       // session AbortError or playback error — handled in finally

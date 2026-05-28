@@ -43,15 +43,11 @@ export function TTSPlayerBar({ state, chunkIdx, totalChunks, onPrev, onNext, onP
           <SkipBackIcon />
         </button>
         <button
-          className="tts-player-btn tts-player-btn--main"
+          className={`tts-player-btn tts-player-btn--main${isLoading ? ' tts-player-btn--pulsing' : ''}`}
           onClick={onPlayPause}
-          disabled={isLoading}
           aria-label={state === 'playing' ? 'Pause' : 'Play'}
         >
-          {isLoading
-            ? <span className="tts-spinner" />
-            : state === 'playing' ? <PauseIcon /> : <PlayIcon />
-          }
+          {state === 'playing' ? <PauseIcon /> : <PlayIcon />}
         </button>
         <button
           className="tts-player-btn"

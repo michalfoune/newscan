@@ -1727,7 +1727,7 @@ textarea::placeholder {
   align-items: center;
   justify-content: center;
   gap: 0.2rem;
-  padding: 0.4rem 0.9rem;
+  padding: 0.25rem 0.9rem 0.4rem;
 }
 
 .tts-player-btn {
@@ -1763,9 +1763,30 @@ textarea::placeholder {
   color: #fff;
 }
 
-.tts-player-btn--main:hover:not(:disabled) {
+.tts-player-btn--main:hover:not(.tts-player-btn--pulsing) {
   background: rgba(255, 255, 255, 0.25);
   color: #fff;
+}
+
+@keyframes tts-spin {
+  to { transform: rotate(360deg); }
+}
+
+.tts-player-btn--pulsing {
+  position: relative;
+  overflow: visible;
+  cursor: default;
+}
+
+.tts-player-btn--pulsing::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  animation: tts-spin 0.75s linear infinite;
+  pointer-events: none;
 }
 
 .tts-player-btn--close {
