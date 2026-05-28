@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
 import { useTTSContext } from '../contexts/TTSContext';
@@ -88,9 +88,34 @@ function buildBriefText(response: BriefingResponse): string {
 
 const INITIAL_VISIBLE = 2;
 
+function buildVisibleBriefText(response: BriefingResponse): string {
+  const parts: string[] = [];
+  if (response.overall_summary) parts.push(response.overall_summary);
+  for (const item of response.items.slice(0, INITIAL_VISIBLE)) {
+    parts.push(`${item.headline}. ${item.summary}`);
+    if (item.why_it_matters) parts.push(item.why_it_matters);
+  }
+  return parts.join(' ');
+}
+
 export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false, apiUrl }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const { state, play } = useTTSContext();
+  const { state, chunkIdx, totalChunks, currentSource, play } = useTTSContext();
+
+  const hasMore = response.items.length > INITIAL_VISIBLE;
+
+  const expansionChunkFraction = useMemo(() => {
+    if (!hasMore) return 1;
+    const fullLen = buildBriefText(response).length;
+    if (fullLen === 0) return 1;
+    return buildVisibleBriefText(response).length / fullLen;
+  }, [response, hasMore]);
+
+  useEffect(() => {
+    if (!hasMore || expanded || currentSource !== 'briefing' || totalChunks === 0) return;
+    const threshold = Math.floor(expansionChunkFraction * totalChunks);
+    if (chunkIdx >= threshold) setExpanded(true);
+  }, [chunkIdx, currentSource, expanded, expansionChunkFraction, hasMore, totalChunks]);
 
   const time = new Date(response.generated_at).toLocaleTimeString([], {
     hour: '2-digit',
@@ -98,7 +123,6 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
   });
 
   const visibleItems = expanded ? response.items : response.items.slice(0, INITIAL_VISIBLE);
-  const hasMore = response.items.length > INITIAL_VISIBLE;
 
   return (
     <section className="briefing-feed">
