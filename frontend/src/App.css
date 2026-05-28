@@ -1702,7 +1702,7 @@ textarea::placeholder {
   left: 50%;
   transform: translateX(-50%);
   z-index: 150;
-  background: #484848;
+  background: #1c1c1e;
   border-radius: 999px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   display: flex;

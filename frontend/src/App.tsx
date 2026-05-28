@@ -7,7 +7,7 @@ import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversa
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown, stripMarkdown } from './utils/markdown';
 import { useTTS } from './hooks/useTTS';
-import { HamburgerIcon, PauseIcon, PlayIcon, SettingsIcon } from './components/icons';
+import { HamburgerIcon, PlayIcon, SettingsIcon } from './components/icons';
 import { TTSPlayerBar } from './components/TTSPlayerBar';
 import './App.css';
 
@@ -73,21 +73,14 @@ function KnowledgeAnswer({ answer, streamingAnswer, knowledgeCutoff, mode, gener
           <span className="feed-mode-badge" style={{ background: MODE_COLORS[mode] }}>
             {t.modeLabels[mode]}
           </span>
-          {apiUrl && answer && !streamingAnswer && (
+          {apiUrl && answer && !streamingAnswer && tts.state === 'idle' && (
             <button
               className="tts-btn"
               style={{ color: MODE_COLORS[mode] }}
-              onClick={() => {
-                if (tts.state === 'idle' || tts.state === 'failed') tts.play(buildPlayText());
-                else if (tts.state === 'playing') tts.togglePause();
-                else if (tts.state === 'paused') tts.togglePause();
-                else tts.stop();
-              }}
-              title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
+              onClick={() => tts.play(buildPlayText())}
+              title="Listen"
             >
-              {tts.state === 'loading' && <span className="tts-spinner" />}
-              {(tts.state === 'idle' || tts.state === 'paused' || tts.state === 'failed') && <PlayIcon />}
-              {tts.state === 'playing' && <PauseIcon />}
+              <PlayIcon />
             </button>
           )}
         </div>

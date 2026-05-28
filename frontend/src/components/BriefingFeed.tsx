@@ -3,7 +3,7 @@ import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
 import { useTTS } from '../hooks/useTTS';
 import { stripMarkdown } from '../utils/markdown';
-import { PauseIcon, PlayIcon } from './icons';
+import { PlayIcon } from './icons';
 import { TTSPlayerBar } from './TTSPlayerBar';
 
 const MODE_COLORS: Record<Mode, string> = {
@@ -119,21 +119,14 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
                     {t.modeLabels[mode]}
                   </span>
                   <span className="feed-count">{t.stories(response.items.length)}</span>
-                  {apiUrl && response.items.length > 0 && (
+                  {apiUrl && response.items.length > 0 && tts.state === 'idle' && (
                     <button
                       className="tts-btn"
                       style={{ color: MODE_COLORS_HEX[mode] }}
-                      onClick={() => {
-                        if (tts.state === 'idle' || tts.state === 'failed') tts.play(stripMarkdown(buildBriefText(response)));
-                        else if (tts.state === 'playing') tts.togglePause();
-                        else if (tts.state === 'paused') tts.togglePause();
-                        else tts.stop();
-                      }}
-                      title={tts.state === 'playing' ? 'Pause' : tts.state === 'paused' ? 'Resume' : 'Listen'}
+                      onClick={() => tts.play(stripMarkdown(buildBriefText(response)))}
+                      title="Listen"
                     >
-                      {tts.state === 'loading' && <span className="tts-spinner" />}
-                      {(tts.state === 'idle' || tts.state === 'paused' || tts.state === 'failed') && <PlayIcon />}
-                      {tts.state === 'playing' && <PauseIcon />}
+                      <PlayIcon />
                     </button>
                   )}
                 </>

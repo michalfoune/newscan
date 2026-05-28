@@ -6,7 +6,7 @@ import { renderMarkdown } from '../utils/markdown';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useTTS } from '../hooks/useTTS';
 import { stripMarkdown } from '../utils/markdown';
-import { CloseIcon, CopyIcon, MicIcon, PauseIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { CloseIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 import { TTSPlayerBar } from './TTSPlayerBar';
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
@@ -253,19 +253,14 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                     >
                       <CopyIcon size={21} />
                     </button>
-                    {item.role === 'assistant' && (
+                    {item.role === 'assistant' && (!isThisTTS || tts.state === 'idle') && (
                       <button
                         type="button"
                         className="hover-action-btn tts-btn tts-btn--sm"
-                        data-tooltip={isThisTTS && tts.state === 'playing' ? 'Pause' : isThisTTS && tts.state === 'paused' ? 'Resume' : 'Listen'}
+                        data-tooltip="Listen"
                         onClick={() => handleTTS(item.content, i)}
                       >
-                        {isThisTTS && tts.state === 'loading' && <span className="tts-spinner" />}
-                        {isThisTTS && tts.state === 'playing'
-                          ? <PauseIcon />
-                          : (!isThisTTS || tts.state === 'idle' || tts.state === 'failed') && <PlayIcon />
-                        }
-                        {isThisTTS && (tts.state === 'paused') && <PlayIcon />}
+                        <PlayIcon />
                       </button>
                     )}
                   </div>
