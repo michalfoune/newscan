@@ -630,7 +630,7 @@ export default function App() {
   return (
     <div className="app" style={{ background: MODE_BG[mode] }}>
       <div className={`sticky-nav${showStickyNav ? ' sticky-nav--visible' : ''}`}>
-        <button className="sidebar-toggle-btn sticky-nav-hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">
+        <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">
           <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
             <path d="M0 1h18M0 7h18M0 13h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
@@ -639,6 +639,37 @@ export default function App() {
           <img src="/android-chrome-192x192.png" alt="" className="sticky-nav-icon" />
           Rizma Brief
         </span>
+        <div className="settings-wrap">
+          <button
+            className={`settings-btn${settingsOpen ? ' settings-btn--active' : ''}${systemPreferences.trim() ? ' settings-btn--set' : ''}`}
+            onClick={() => setSettingsOpen(o => !o)}
+            aria-label="Settings"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+            </svg>
+          </button>
+          {settingsOpen && showStickyNav && (
+            <SettingsPopover
+              value={systemPreferences}
+              onChange={handlePrefsChange}
+              language={language}
+              onLanguageChange={setLanguage}
+              modelQuality={modelQuality}
+              onModelQualityChange={handleQualityChange}
+              articleCounts={articleCounts}
+              onArticleCountChange={handleArticleCountChange}
+              location={location}
+              onLocationChange={handleLocationChange}
+              showKeywords={showKeywords}
+              onShowKeywordsChange={handleShowKeywordsChange}
+              newsSource={newsSource}
+              onNewsSourceChange={handleNewsSourceChange}
+              onClose={() => setSettingsOpen(false)}
+            />
+          )}
+        </div>
       </div>
       <button
         className={`scroll-to-bottom-btn${showScrollDown ? ' scroll-to-bottom-btn--visible' : ''}`}
@@ -686,7 +717,7 @@ export default function App() {
                   <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
                 </svg>
               </button>
-              {settingsOpen && (
+              {settingsOpen && !showStickyNav && (
                 <SettingsPopover
                   value={systemPreferences}
                   onChange={handlePrefsChange}
