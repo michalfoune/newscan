@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BriefingItem, BriefingResponse, Mode, Tone } from '../types';
 import { Translations } from '../translations';
 import { useTTSContext } from '../contexts/TTSContext';
@@ -101,6 +101,7 @@ function buildVisibleBriefText(response: BriefingResponse): string {
 export function BriefingFeed({ response, t, mode, generationSeconds, showKeywords = true, relatedCoverage = false, apiUrl }: Props) {
   const [expanded, setExpanded] = useState(false);
   const { state, chunkIdx, totalChunks, currentSource, play } = useTTSContext();
+  const autoExpandedRef = useRef(false);
 
   const hasMore = response.items.length > INITIAL_VISIBLE;
 
@@ -111,11 +112,19 @@ export function BriefingFeed({ response, t, mode, generationSeconds, showKeyword
     return buildVisibleBriefText(response).length / fullLen;
   }, [response, hasMore]);
 
+  // Reset the one-shot flag when TTS stops or moves to a different source
   useEffect(() => {
-    if (!hasMore || expanded || currentSource !== 'briefing' || totalChunks === 0) return;
+    if (state === 'idle' || currentSource !== 'briefing') autoExpandedRef.current = false;
+  }, [state, currentSource]);
+
+  useEffect(() => {
+    if (!hasMore || autoExpandedRef.current || currentSource !== 'briefing' || totalChunks === 0) return;
     const threshold = Math.floor(expansionChunkFraction * totalChunks);
-    if (chunkIdx >= threshold) setExpanded(true);
-  }, [chunkIdx, currentSource, expanded, expansionChunkFraction, hasMore, totalChunks]);
+    if (chunkIdx >= threshold) {
+      autoExpandedRef.current = true;
+      setExpanded(true);
+    }
+  }, [chunkIdx, currentSource, expansionChunkFraction, hasMore, totalChunks]);
 
   const time = new Date(response.generated_at).toLocaleTimeString([], {
     hour: '2-digit',
