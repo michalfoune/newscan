@@ -6,7 +6,7 @@ import { renderMarkdown } from '../utils/markdown';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useTTSContext } from '../contexts/TTSContext';
 import { stripMarkdown } from '../utils/markdown';
-import { CloseIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { ChevronDownIcon, ChevronUpIcon, CloseIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
@@ -40,6 +40,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [pendingText, setPendingText] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [fetchElapsed, setFetchElapsed] = useState(0);
+  const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
+  const [overflowMsgs, setOverflowMsgs] = useState<Set<number>>(new Set());
+  const overflowMeasuredRef = useRef<Set<number>>(new Set());
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { state: ttsState, currentSource, play: ttsPlay, stop: ttsStop, togglePause: ttsTogglePause } = useTTSContext();
 
@@ -120,6 +124,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     onThreadChange(threadWithUser);
 
     setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setSending(true);
     setStatusMsg(null);
     setPendingText('');
@@ -230,10 +235,30 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           {thread.map((item, i) => {
             if (item.type === 'message') {
               const isLastAssistant = i === lastAssistantIdx && !sending;
+              const isOverflow = overflowMsgs.has(i);
+              const isExpanded = expandedMsgs.has(i);
+              const toggleExpanded = () => setExpandedMsgs(prev => {
+                const next = new Set(prev);
+                next.has(i) ? next.delete(i) : next.add(i);
+                return next;
+              });
+              const clampRef = (el: HTMLDivElement | null) => {
+                if (el && item.role === 'user' && !overflowMeasuredRef.current.has(i) && el.scrollHeight > el.clientHeight) {
+                  overflowMeasuredRef.current.add(i);
+                  setOverflowMsgs(prev => new Set(prev).add(i));
+                }
+              };
               return (
                 <div key={i} className={`chat-msg-wrap chat-msg-wrap--${item.role}`}>
                   <div className={`chat-msg chat-msg--${item.role}`}>
-                    {renderMarkdown(item.content)}
+                    <div ref={!isExpanded ? clampRef : undefined} className={item.role === 'user' && !isExpanded ? 'msg-text-clamped' : undefined}>
+                      {renderMarkdown(item.content)}
+                    </div>
+                    {isOverflow && (
+                      <button className="msg-chevron-btn" onClick={toggleExpanded} type="button">
+                        {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                      </button>
+                    )}
                   </div>
                   <div className={`hover-actions${isLastAssistant ? ' hover-actions--visible' : ''}`}>
                     <button
@@ -290,6 +315,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
 
       <div className="query-box" style={{ '--voice-color': MODE_COLORS[chatMode] } as React.CSSProperties}>
         <textarea
+          ref={textareaRef}
           className="chat-query-input"
           value={input}
           onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}

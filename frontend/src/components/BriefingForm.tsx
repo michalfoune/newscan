@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 import { useVoiceInput } from '../hooks/useVoiceInput';
-import { CloseIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { ChevronDownIcon, ChevronUpIcon, CloseIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
@@ -30,6 +30,9 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
   const [submittedRequest, setSubmittedRequest] = useState(initialRequest);
   const [collapsed, setCollapsed] = useState(hasResults);
   const [copied, setCopied] = useState(false);
+  const [queryExpanded, setQueryExpanded] = useState(false);
+  const [queryOverflow, setQueryOverflow] = useState(false);
+  const queryOverflowMeasured = useRef(false);
 
   const submitRequest = (text: string) => {
     setSubmittedRequest(text);
@@ -62,12 +65,25 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
     });
   };
 
+  const queryClampRef = (el: HTMLSpanElement | null) => {
+    if (el && !queryOverflowMeasured.current && el.scrollHeight > el.clientHeight) {
+      queryOverflowMeasured.current = true;
+      setQueryOverflow(true);
+    }
+  };
+
   if (collapsed && hasResults && !loading) {
     return (
       <div className="briefing-collapsed-wrap">
         <div className="briefing-collapsed" onClick={() => setCollapsed(false)} role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(false); }}>
-          <span className="briefing-collapsed-query">{submittedRequest}</span>
+          <span ref={!queryExpanded ? queryClampRef : undefined} className={!queryExpanded ? 'briefing-collapsed-query msg-text-clamped' : 'briefing-collapsed-query'}>{submittedRequest}</span>
+          {queryOverflow && (
+            <button className="msg-chevron-btn msg-chevron-btn--dark" type="button"
+              onClick={(e) => { e.stopPropagation(); setQueryExpanded(p => !p); }}>
+              {queryExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            </button>
+          )}
         </div>
         <div className="hover-actions">
           <button type="button" className="hover-action-btn" data-tooltip={copied ? 'Copied!' : 'Copy'}

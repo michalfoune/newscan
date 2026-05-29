@@ -100,3 +100,19 @@ export function SkipForwardIcon() {
     </svg>
   );
 }
+
+export function ChevronDownIcon() {
+  return (
+    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+      <path d="M1 1l5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+export function ChevronUpIcon() {
+  return (
+    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+      <path d="M1 7l5-5 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}

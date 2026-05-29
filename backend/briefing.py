@@ -156,6 +156,9 @@ _LOCATION_BRIEF_INSTRUCTIONS: dict = {
 }
 
 
+_TOPIC_EXTRACT_MAX_CHARS = 1000
+
+
 def _extract_topic_groups(request: str, client: anthropic.Anthropic, location: str = "us") -> list[list[str]]:
     """Return topic groups: each group is [primary, variant1, variant2] for the same subject.
     Multiple groups = multiple distinct subjects in the query."""
@@ -167,12 +170,18 @@ def _extract_topic_groups(request: str, client: anthropic.Anthropic, location: s
         + (f" {loc_hint}" if loc_hint else "")
         + f" Today's date is {today} — use this to resolve relative terms like 'next', 'upcoming', or 'recent' correctly. Do NOT append a year to a topic unless the user explicitly stated that year."
     )
+    trimmed = request[:_TOPIC_EXTRACT_MAX_CHARS]
+    user_content = (
+        "Ignore question words, conversational phrases, and opinions. "
+        "Extract only the named entities and news topics.\n\n"
+        + trimmed
+    )
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=384,
         temperature=0,
         system=system,
-        messages=[{"role": "user", "content": request}],
+        messages=[{"role": "user", "content": user_content}],
     )
     raw = _strip_fences(msg.content[0].text.strip())
     try:
@@ -463,6 +472,8 @@ def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_is
     try:
         topic_groups = _extract_topic_groups(req.request, client, location=req.location)
     except Exception:
+        yield f"event: fallback\ndata: {json.dumps({})}\n\n"
+        yield from _knowledge_stream(client, req)
         yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
         return
 

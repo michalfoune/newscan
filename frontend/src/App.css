@@ -363,13 +363,15 @@ body {
 }
 
 .briefing-collapsed {
-  display: inline-block;
-  padding: 0.22rem 0.85rem;
+  display: inline-flex;
+  flex-direction: column;
+  padding: 0.45rem 0.85rem 0.6rem;
   background: #e8e6e1;
   border-radius: 18px;
   cursor: pointer;
   transition: background 0.15s;
   max-width: 560px;
+  position: relative;
 }
 
 .briefing-collapsed:hover {
@@ -1216,12 +1218,48 @@ textarea::placeholder {
   border-radius: 10px;
   font-size: 0.9rem;
   line-height: 1.6;
+  position: relative;
 }
 
 .chat-msg--user {
   background: linear-gradient(135deg, #7c60c8 0%, #4838a8 100%);
   color: #fff;
   border-bottom-right-radius: 3px;
+}
+
+.msg-text-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  padding-right: 0.7rem;
+}
+
+.msg-chevron-btn {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.65rem;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.msg-chevron-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.msg-chevron-btn--dark {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.msg-chevron-btn--dark:hover {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .chat-msg--assistant {
