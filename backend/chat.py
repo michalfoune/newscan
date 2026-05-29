@@ -36,6 +36,8 @@ REASONING_MODELS: dict = {
     "best": "claude-opus-4-7",
 }
 
+CHAT_MAX_TOKENS = 8000  # cap chat follow-up responses; system prompt targets 60-90 words but allows longer for complex questions
+
 CHAT_MODE_INSTRUCTIONS: dict = {
     "calm": """Tone — CALM (highly sensitive person / HSP mode):
 - Ease into difficult topics: give context first, then the concerning fact — never lead with alarm
@@ -203,15 +205,21 @@ def answer_followup_stream(req: ChatStreamRequest):
     messages_for_api = [{"role": m.role, "content": m.content} for m in req.messages]
     messages_for_api.append({"role": "user", "content": req.new_message})
 
+    model = REASONING_MODELS.get(req.model_quality, REASONING_MODELS["fast"])
+    system = _build_system(req, context_block)
+
     with client.messages.stream(
-        model=REASONING_MODELS.get(req.model_quality, REASONING_MODELS["fast"]),
-        max_tokens=16000,
-        system=_build_system(req, context_block),
+        model=model,
+        max_tokens=CHAT_MAX_TOKENS,
+        system=system,
         messages=messages_for_api,
         tools=[WEB_SEARCH_TOOL],
     ) as stream:
-        for chunk in stream.text_stream:
-            yield f"event: reply_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
+        for event in stream:
+            if (event.type == "content_block_delta"
+                    and event.delta.type == "text_delta"
+                    and event.delta.text):
+                yield f"event: reply_chunk\ndata: {json.dumps({'chunk': event.delta.text})}\n\n"
 
     yield f"event: reply_done\ndata: {{}}\n\n"
     yield f"event: done\ndata: {{}}\n\n"

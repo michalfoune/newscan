@@ -82,7 +82,8 @@ Schema:
 source_index: the integer [N] of the Article from the provided numbered list that this brief item primarily draws from. Set it accurately — it is used to link back to the original source article.
 IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
 
-FETCH_PER_TOPIC = 20  # articles fetched per topic; LLM selects the best MODE_ARTICLE_COUNTS[mode] from these
+FETCH_PER_TOPIC = 20        # articles fetched per topic; LLM selects the best MODE_ARTICLE_COUNTS[mode] from these
+KNOWLEDGE_MAX_TOKENS = 4000  # knowledge answers can be long; news briefing items are capped separately
 
 QUALITY_MODELS: dict = {
     "fast": "claude-haiku-4-5-20251001",
@@ -353,7 +354,7 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
     try:
         with client.messages.stream(
             model=QUALITY_MODELS["standard"],
-            max_tokens=800,
+            max_tokens=KNOWLEDGE_MAX_TOKENS,
             system=(
                 "You are a knowledgeable assistant. Answer the user's question clearly and concisely. "
                 "You have real-time web search available — use it proactively for any question that requires "
@@ -367,8 +368,11 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
             messages=[{"role": "user", "content": req.request}],
             tools=[_WEB_SEARCH_TOOL],
         ) as stream:
-            for chunk in stream.text_stream:
-                yield f"event: k_chunk\ndata: {json.dumps({'chunk': chunk})}\n\n"
+            for event in stream:
+                if (event.type == "content_block_delta"
+                        and event.delta.type == "text_delta"
+                        and event.delta.text):
+                    yield f"event: k_chunk\ndata: {json.dumps({'chunk': event.delta.text})}\n\n"
         yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
     except Exception:
         yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
