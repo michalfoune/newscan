@@ -41,7 +41,7 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
             resp = _requests.get(
                 "https://gnews.io/api/v4/search",
                 params=params,
-                timeout=20,
+                timeout=5,
             )
             if resp.status_code in (429, 402):
                 _rate_limited = True
