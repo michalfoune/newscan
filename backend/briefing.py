@@ -84,6 +84,7 @@ IMPORTANT: If you have no source articles for a topic, set "no_articles": true o
 
 FETCH_PER_TOPIC = 20        # articles fetched per topic; LLM selects the best MODE_ARTICLE_COUNTS[mode] from these
 KNOWLEDGE_MAX_TOKENS = 4000  # knowledge answers can be long; news briefing items are capped separately
+ARTICLE_SECTION_MAX_TOKENS = 2500  # JSON article items: up to 4 items × ~400 tokens each + summary
 
 QUALITY_MODELS: dict = {
     "fast": "claude-haiku-4-5-20251001",
@@ -383,7 +384,8 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
                         and event.delta.text):
                     yield f"event: k_chunk\ndata: {json.dumps({'chunk': event.delta.text})}\n\n"
         yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
-    except Exception:
+    except Exception as e:
+        print(f"[knowledge_stream] error: {e}", flush=True)
         yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
 
 
@@ -423,7 +425,7 @@ def _stream_article_section(
 
     with client.messages.stream(
         model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
-        max_tokens=1300,
+        max_tokens=ARTICLE_SECTION_MAX_TOKENS,
         system=system,
         messages=[{"role": "user", "content": user_message}],
     ) as stream:

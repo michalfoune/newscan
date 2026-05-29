@@ -41,7 +41,7 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
             resp = _requests.get(
                 "https://gnews.io/api/v4/search",
                 params=params,
-                timeout=10,
+                timeout=20,
             )
             if resp.status_code in (429, 402):
                 _rate_limited = True
@@ -157,19 +157,11 @@ def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_s
                 raise ValueError("NEWS_API_KEY is not set in environment")
             try:
                 er = EventRegistry(apiKey=api_key, allowUseOfArchive=False)
-                results = []
-                # Try each variant (2-day window) — short-circuit on first hit
-                for keyword in group:
-                    results = _run_er_query(er, keyword)
-                    if results:
-                        break
-                # Widen to 7 days if still nothing, trying variants again
-                if not results:
-                    for keyword in group:
-                        results = _run_er_query(er, keyword, date_start=date_start_7d)
-                        if results:
-                            break
-            except Exception:
+                with ThreadPoolExecutor(max_workers=1) as _er_exec:
+                    future = _er_exec.submit(_run_er_query, er, primary, date_start_7d)
+                    results = future.result(timeout=10)
+            except Exception as e:
+                print(f"[fetch_articles] EventRegistry error for {primary!r}: {e}", flush=True)
                 results = []
 
         # Always label articles with the primary topic name for consistent tracking
