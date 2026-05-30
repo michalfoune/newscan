@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import anthropic
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional
 from models import BriefingRequest, BriefingResponse, BriefingItem
@@ -15,17 +16,16 @@ logger = logging.getLogger(__name__)
 
 CLASSIFY_PROMPT = (
     "Classify the user's query and generate a short display title.\n\n"
-    "Classification — 'news' or 'knowledge':\n"
-    "'news': the answer changes week to week — current state of markets, economy, politics, ongoing conflicts, "
-    "technology landscape, company developments, sports seasons, climate events. Use this whenever the user wants "
-    "to know what is happening or how things stand RIGHT NOW, even if they don't say 'latest' or 'today'.\n"
-    "'knowledge': the answer is stable — a specific date or schedule, how something works mechanically, "
-    "a historical event clearly in the past, a definition, or a biographical fact. "
-    "Use this ONLY when the core of the answer does not change from week to week.\n\n"
+    "Classification — 'digest' or 'knowledge':\n"
+    "'digest': the user wants a curated feed of articles on a broad topic — no specific question, just 'show me what is happening.' "
+    "Examples: 'top stories today', 'tech news this week', 'what's happening in California', 'Gaza updates', 'world news'.\n"
+    "'knowledge': the user has a specific question or wants to understand something in depth — even if the topic is current events or recent news. "
+    "Examples: 'how is the situation on the front line of a major conflict?', 'what were the key court findings in a high-profile trial?', "
+    "'what is Apple's AI strategy?', 'how has the Gaza conflict evolved?', 'what is the Fed's latest decision on rates?'.\n"
+    "Default strongly to 'knowledge'. Only classify as 'digest' when the query clearly has no specific question and is asking for a topic feed.\n\n"
     "Title: 2–5 words, sentence case, no punctuation at the end. Capture the core topic, not the question form. "
-    "Examples: 'Ukraine war update', 'Fed interest rates', 'Gaza conflict', 'Abraham Lincoln biography', "
-    "'Quantum computing explained', 'Porsche 718 EV news'.\n\n"
-    "Return ONLY valid JSON: {\"type\": \"news\" | \"knowledge\", \"title\": \"...\"}"
+    "Examples: 'Ukraine war update', 'Fed interest rates', 'Gaza conflict', 'Top stories today'.\n\n"
+    "Return ONLY valid JSON: {\"type\": \"digest\" | \"knowledge\", \"title\": \"...\"}"
 )
 
 TOPIC_EXTRACTION_PROMPT = (
@@ -40,7 +40,7 @@ TOPIC_EXTRACTION_PROMPT = (
     'Examples: [["United States elections", "US elections", "American elections"]] | '
     '[["Deloitte layoffs", "Deloitte job cuts"], ["Meta layoffs", "Meta staff cuts"]] | '
     '[["Gaza conflict", "Gaza war", "Gaza crisis"]] | [["Fed interest rates", "Federal Reserve rates"]]. '
-    "For broad requests (e.g. 'top news today'), return [[\"world news\", \"top stories\"]]. "
+    "For requests that name NO specific topic, subject area, or geography at all (e.g. 'top news today', 'latest news', 'what's happening', 'news today'), return []. Any query that names a topic area (politics, technology, sports, economy, a country, a person, a company) must return topic groups even if phrased as 'what X matters' or 'what's happening with X'. "
     "Never include years (e.g. 2024, 2026) in any search string — not even if the user mentioned a year. Years corrupt keyword search results. "
     "Return ONLY valid JSON. "
     "IMPORTANT: Always return search strings in English, regardless of the language of the user's request."
@@ -96,6 +96,12 @@ MODE_ARTICLE_COUNTS: dict = {
     "calm": 2,
     "balanced": 3,
     "brave": 4,
+}
+
+MODE_KNOWLEDGE_MAX_TOKENS: dict = {
+    "calm": 1200,
+    "balanced": 2000,
+    "brave": 4000,
 }
 
 MODE_INSTRUCTION_TEMPLATES: dict = {
@@ -200,6 +206,30 @@ def _extract_topic_groups(request: str, client: anthropic.Anthropic, location: s
     return data
 
 
+def _filter_relevant_articles(articles: list[dict], query: str, client: anthropic.Anthropic) -> list[dict]:
+    """Drop articles whose titles are not relevant to the user's query."""
+    if not articles:
+        return articles
+    titles = "\n".join(f"[{i}] {a['title']}" for i, a in enumerate(articles))
+    try:
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=128,
+            system=(
+                "You filter news article lists for relevance. "
+                "Given a user query and a numbered list of article titles, return a JSON array of "
+                "the indices that are genuinely relevant to what the user is asking about. "
+                "Be generous — include articles if they could plausibly inform the answer. "
+                "Only exclude articles that are clearly about a different topic entirely. "
+                "Return ONLY a valid JSON array of integers, e.g. [0, 2, 3]."
+            ),
+            messages=[{"role": "user", "content": f"User query: {query}\n\nArticles:\n{titles}"}],
+        )
+        raw = _strip_fences(msg.content[0].text.strip())
+        indices = json.loads(raw)
+        return [articles[i] for i in indices if isinstance(i, int) and 0 <= i < len(articles)]
+    except Exception:
+        return articles
 
 
 def _parse_streaming_items(accumulated: str, emitted_count: int) -> tuple[list[dict], int]:
@@ -317,10 +347,32 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
 
 
 _KNOWLEDGE_MODE_INSTRUCTIONS: dict = {
-    "calm": "Use a gentle, reassuring tone. Avoid alarming framing. Present facts clearly without being overwhelming.",
-    "balanced": "Use a measured, balanced tone. Be informative without sensationalism.",
-    "brave": "Be direct and comprehensive. Report facts plainly without softening.",
+    "calm": (
+        "Tone — CALM (written for highly sensitive people / HSP): "
+        "Ease into difficult topics — give context and orientation first, then state the concerning fact; never lead with alarm. "
+        "Explicitly separate the reader from any threat where truthfully possible (e.g. 'this is happening abroad and does not directly affect…'). "
+        "Highlight what is stable, measured, or contained alongside difficult news — ongoing diplomacy, limited scope, measured official responses. "
+        "Avoid alarm words: 'devastating', 'catastrophic', 'crisis', 'chaos', 'collapse', 'terror' — use 'serious', 'difficult', 'challenging' instead. "
+        "No graphic or viscerally distressing detail — describe outcomes without vivid imagery. "
+        "Feel like a calm, caring friend who respects emotional sensitivity and trusts the reader to handle truth gently. "
+        "Keep the response concise: cover at most 3 topics or points, 2–3 sentences each. Prioritise the most important and omit secondary detail."
+    ),
+    "balanced": (
+        "Tone — BALANCED (HSP-aware but complete): "
+        "Be honest and informative, but avoid sensationalism and emotionally charged framing. "
+        "Briefly orient the reader before stating concerning facts — don't lead with alarm. "
+        "Note stabilizing elements where relevant (diplomacy, limited scope, measured official responses) alongside difficult news. "
+        "Avoid graphic detail and alarm words; use measured, factual language. "
+        "Cover 4-5 topics or points at moderate depth — enough to inform, not overwhelm. Avoid exhaustive lists."
+    ),
+    "brave": (
+        "Tone — BRAVE: Direct and comprehensive. Report facts plainly without softening or filtering for emotional impact. "
+        "Standard journalistic directness — state outcomes, causes, and significance clearly. "
+        "Still write with humanity: factual but not gratuitous or sensational. "
+        "Cover all significant angles thoroughly — even if it's more than 6-8 topics; but generally not more than 10."
+    ),
 }
+
 
 
 def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Optional[str]]:
@@ -338,7 +390,7 @@ def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Opti
             m = re.search(r'\{[^}]+\}', raw)
             raw = m.group() if m else raw
         data = json.loads(raw)
-        query_type = "news" if str(data.get("type", "")).startswith("news") else "knowledge"
+        query_type = "digest" if str(data.get("type", "")).startswith("digest") else "knowledge"
         title = data.get("title") or None
         logger.info(f"[classify] type={query_type} title={title!r}")
         return query_type, title
@@ -361,17 +413,18 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
     """Stream the LLM knowledge answer, yielding k_chunk and k_done SSE events."""
     mode_instruction = _KNOWLEDGE_MODE_INSTRUCTIONS.get(req.mode, _KNOWLEDGE_MODE_INSTRUCTIONS["balanced"])
     lang_instruction = _KNOWLEDGE_LANG_INSTRUCTIONS.get(req.language, _KNOWLEDGE_LANG_INSTRUCTIONS["en"])
+    max_tokens = MODE_KNOWLEDGE_MAX_TOKENS.get(req.mode, KNOWLEDGE_MAX_TOKENS)
     try:
         with client.messages.stream(
             model=QUALITY_MODELS["standard"],
-            max_tokens=KNOWLEDGE_MAX_TOKENS,
+            max_tokens=max_tokens,
             system=(
                 "You are a knowledgeable assistant. Answer the user's question clearly and concisely. "
                 "You have real-time web search available — use it proactively for any question that requires "
                 "current or recent information: whether someone is alive, current events, ongoing competitions, "
                 "recent news, or anything that may have changed recently. "
                 "Use markdown formatting: **bold** for key terms, ## for section headings if the answer has multiple sections, "
-                "and bullet lists where appropriate. "
+                "and bullet lists where appropriate. Do not use emojis. "
                 f"{mode_instruction} "
                 f"{lang_instruction}"
             ),
@@ -469,73 +522,55 @@ def _stream_article_section(
     yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
 
-def _stream_news_brief(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
-    """News path: fetch articles → stream items → done. Falls back to knowledge if no articles found."""
-    try:
-        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
-    except Exception:
-        yield f"event: fallback\ndata: {json.dumps({})}\n\n"
-        yield from _knowledge_stream(client, req)
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
-        return
-
-    primaries = [g[0] for g in topic_groups]
-    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
-
-    try:
-        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
-    except Exception:
-        articles = []
-
-    if not articles:
-        yield f"event: fallback\ndata: {json.dumps({})}\n\n"
-        yield from _knowledge_stream(client, req)
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': primaries, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        return
-
-    topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in primaries if t not in topics_with_articles]
-    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=True)
-
-
-def _stream_knowledge_answer(client: anthropic.Anthropic, req: BriefingRequest, now_iso: str, keyword_trimmed: bool):
-    """Knowledge path: stream LLM answer → fetch related articles → done."""
-    yield from _knowledge_stream(client, req)
-
-    yield f"event: status\ndata: {json.dumps({'stage': 'fetching'})}\n\n"
-    try:
-        topic_groups = _extract_topic_groups(req.request, client, location=req.location)
-        articles = fetch_articles(topic_groups, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location)
-        primaries = [g[0] for g in topic_groups]
-    except Exception:
-        articles = []
-        primaries = []
-
-    if not articles:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-        return
-
-    topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in primaries if t not in topics_with_articles]
-    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=False)
-
-
 def generate_briefing_stream(req: BriefingRequest):
-    """Generator that yields SSE-formatted strings."""
+    """Generator that yields SSE-formatted strings.
+    Knowledge answer always streams first; classify + article fetch run concurrently in the background."""
     client = anthropic.Anthropic()
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     keyword_trimmed = len(req.request.split()) > 15
 
-    query_type, title = classify_query(req.request, client)
-    yield f"event: query_type\ndata: {json.dumps({'type': query_type})}\n\n"
+    # Always knowledge first — frontend initialises state immediately
+    yield f"event: query_type\ndata: {json.dumps({'type': 'knowledge'})}\n\n"
+
+    def _background_pipeline() -> tuple[Optional[str], list, list]:
+        """Extract topics + fetch articles; runs concurrently with the knowledge stream."""
+        try:
+            title = classify_query(req.request, client)[1]
+        except Exception:
+            title = None
+        try:
+            tgs = _extract_topic_groups(req.request, client, location=req.location)
+            arts = fetch_articles(tgs, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location) if tgs else []
+            arts = _filter_relevant_articles(arts, req.request, client)
+        except Exception:
+            tgs, arts = [], []
+        return title, tgs, arts
+
+    with ThreadPoolExecutor(max_workers=1) as bg:
+        pipeline_future = bg.submit(_background_pipeline)
+
+        # Stream knowledge answer immediately — no pre-flight wait
+        yield from _knowledge_stream(client, req)
+
+        # Background pipeline ran concurrently; should be complete or nearly so
+        try:
+            title, topic_groups, articles = pipeline_future.result(timeout=5)
+        except Exception:
+            title, topic_groups, articles = None, [], []
+
     if title:
         yield f"event: title\ndata: {json.dumps({'title': title})}\n\n"
 
-    if query_type == "knowledge":
-        yield from _stream_knowledge_answer(client, req, now_iso, keyword_trimmed)
-    else:
-        yield from _stream_news_brief(client, req, now_iso, keyword_trimmed)
+    if not articles or not topic_groups:
+        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
+        return
+
+    primaries = [g[0] for g in topic_groups]
+    topics_with_articles = {a["topic"] for a in articles}
+    missing_topics = [t for t in primaries if t not in topics_with_articles]
+
+    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=False)
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:

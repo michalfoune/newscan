@@ -12,6 +12,8 @@ _BODY_LIMIT = 3000  # chars stored per article; LLM context truncates separately
 _cache: dict = {}
 _CACHE_TTL = 300  # 5 minutes
 
+NEWS_REQUEST_TIMEOUT = 5  # seconds; applied to both GNews HTTP requests and EventRegistry fetches
+
 
 _GNEWS_COUNTRY: dict = {"us": "us", "california": "us"}  # europe/global: omit
 
@@ -41,7 +43,7 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
             resp = _requests.get(
                 "https://gnews.io/api/v4/search",
                 params=params,
-                timeout=5,
+                timeout=NEWS_REQUEST_TIMEOUT,
             )
             if resp.status_code in (429, 402):
                 _rate_limited = True
@@ -111,6 +113,8 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
 def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_source: str = "eventregistry", location: str = "us") -> list[dict]:
     """Fetch recent English-language articles for each topic group, in parallel.
     Each group is [primary, variant1, variant2...] — variants are tried in order until one returns results."""
+    if not topic_groups:
+        return []
 
     date_start_2d = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
     date_start_7d = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -159,7 +163,7 @@ def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_s
                 er = EventRegistry(apiKey=api_key, allowUseOfArchive=False)
                 with ThreadPoolExecutor(max_workers=1) as _er_exec:
                     future = _er_exec.submit(_run_er_query, er, primary, date_start_7d)
-                    results = future.result(timeout=10)
+                    results = future.result(timeout=NEWS_REQUEST_TIMEOUT)
             except Exception as e:
                 print(f"[fetch_articles] EventRegistry error for {primary!r}: {e}", flush=True)
                 results = []
