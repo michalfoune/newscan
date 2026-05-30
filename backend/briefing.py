@@ -268,7 +268,7 @@ def _compute_article_items(
             continue
         relevance = float(raw_item.pop("relevance_score", 1.0))
         print(f"Relevance: {relevance}")
-        if relevance < 0.75:
+        if relevance < 0.4:
             continue
         published_at, url, source, src_title, src_body = _resolve_meta(
             article_meta, raw_item.pop("source_index", None), i, now_iso
