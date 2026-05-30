@@ -74,12 +74,14 @@ Schema:
       "why_it_matters": "One sentence. Omit if not helpful.",
       "tone": "positive" | "neutral" | "concerning",
       "source_index": 0,
+      "relevance_score": 0.9,
       "no_articles": false
     }
   ]
 }
 
 source_index: the integer [N] of the Article from the provided numbered list that this brief item primarily draws from. Set it accurately — it is used to link back to the original source article.
+relevance_score: float 0.0–1.0 scoring how directly this item addresses the user's specific request. 1.0 = directly answers what the user asked; 0.5 = tangentially related (same broad area but different subject); 0.0 = unrelated or only shares a keyword with the query. Score against the user's actual intent, not just keyword overlap (e.g. "Bondi Beach attack" scores 0.0 if the user asked about Pam Bondi).
 IMPORTANT: If you have no source articles for a topic, set "no_articles": true on that item. Do NOT set it to true for items that have real source articles."""
 
 FETCH_PER_TOPIC = 20        # articles fetched per topic; LLM selects the best MODE_ARTICLE_COUNTS[mode] from these
@@ -232,60 +234,57 @@ def _filter_relevant_articles(articles: list[dict], query: str, client: anthropi
         return articles
 
 
-def _parse_streaming_items(accumulated: str, emitted_count: int) -> tuple[list[dict], int]:
-    """Extract newly completed item objects from partial streaming JSON, skipping already-emitted ones."""
-    marker_pos = accumulated.find('"items"')
-    if marker_pos == -1:
-        return [], emitted_count
-
-    bracket = accumulated.find('[', marker_pos)
-    if bracket == -1:
-        return [], emitted_count
-
-    new_items = []
-    pos = bracket + 1
-    found_count = 0
-
-    while True:
-        while pos < len(accumulated) and accumulated[pos] in ' \n\r\t,':
-            pos += 1
-        if pos >= len(accumulated) or accumulated[pos] != '{':
+def _compute_article_items(
+    client: anthropic.Anthropic,
+    req: BriefingRequest,
+    now_iso: str,
+    topic_groups: list,
+    articles: list,
+) -> list[BriefingItem]:
+    """Batch (non-streaming) article processing — runs in the background pipeline concurrently with the knowledge stream."""
+    if not articles:
+        return []
+    primaries = [g[0] for g in topic_groups]
+    missing_topics = [t for t in primaries if t not in {a["topic"] for a in articles}]
+    article_context, article_meta = _build_article_context(articles)
+    system, user_message = _build_prompt(req, article_context, missing_topics, topic_primaries=primaries)
+    max_items = _resolve_count(req.mode, req.article_counts)
+    try:
+        message = client.messages.create(
+            model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
+            max_tokens=ARTICLE_SECTION_MAX_TOKENS,
+            system=system,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        data = json.loads(_strip_fences(message.content[0].text.strip()))
+    except Exception as e:
+        print(f"[compute_article_items] error: {e}", flush=True)
+        return []
+    items: list[BriefingItem] = []
+    for i, raw_item in enumerate(data.get("items", [])):
+        if len(items) >= max_items:
             break
-
-        depth = 0
-        in_string = False
-        escape_next = False
-
-        for i in range(pos, len(accumulated)):
-            ch = accumulated[i]
-            if escape_next:
-                escape_next = False
-                continue
-            if in_string:
-                if ch == '\\':
-                    escape_next = True
-                elif ch == '"':
-                    in_string = False
-                continue
-            if ch == '"':
-                in_string = True
-            elif ch == '{':
-                depth += 1
-            elif ch == '}':
-                depth -= 1
-                if depth == 0:
-                    found_count += 1
-                    if found_count > emitted_count:
-                        try:
-                            new_items.append(json.loads(accumulated[pos:i + 1]))
-                        except json.JSONDecodeError:
-                            pass
-                    pos = i + 1
-                    break
-        else:
-            break
-
-    return new_items, emitted_count + len(new_items)
+        if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
+            continue
+        relevance = float(raw_item.pop("relevance_score", 1.0))
+        print(f"Relevance: {relevance}")
+        if relevance < 0.75:
+            continue
+        published_at, url, source, src_title, src_body = _resolve_meta(
+            article_meta, raw_item.pop("source_index", None), i, now_iso
+        )
+        try:
+            items.append(BriefingItem(
+                **raw_item,
+                published_at=published_at,
+                url=url or None,
+                source=source or None,
+                source_title=src_title or None,
+                source_body=src_body or None,
+            ))
+        except Exception:
+            pass
+    return items
 
 
 def _build_article_context(articles: list[dict]) -> tuple[str, list[tuple[str, str, str, str, str]]]:
@@ -316,7 +315,7 @@ def _build_article_context(articles: list[dict]) -> tuple[str, list[tuple[str, s
 # Main entry points
 # ---------------------------------------------------------------------------
 
-def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: list[str]) -> tuple[str, str]:
+def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: list[str], topic_primaries: Optional[list[str]] = None) -> tuple[str, str]:
     """Return (system_prompt, user_message) for the Sonnet briefing call."""
     lang_instruction = {
         "en": "Respond entirely in English (US).",
@@ -338,8 +337,13 @@ def _build_prompt(req: BriefingRequest, article_context: str, missing_topics: li
         f"\nNote: No articles were found for these topics, do NOT generate items for them: {', '.join(missing_topics)}"
         if missing_topics else ""
     )
+    topics_note = (
+        f"\nNote: This query was resolved to the following specific topics — use these to judge relevance_score: {', '.join(topic_primaries)}"
+        if topic_primaries else ""
+    )
     user_message = (
-        f"User request: {req.request}\n\n"
+        f"User request: {req.request}"
+        f"{topics_note}\n\n"
         f"Article excerpts to draw from:\n{article_context}"
         f"{missing_note}"
     )
@@ -454,77 +458,10 @@ def _resolve_meta(
     return meta[max(0, min(idx, len(meta) - 1))]
 
 
-def _stream_article_section(
-    client: anthropic.Anthropic,
-    req: BriefingRequest,
-    now_iso: str,
-    keyword_trimmed: bool,
-    topic_groups: list,
-    articles: list,
-    missing_topics: list,
-    include_summary: bool = True,
-):
-    """Shared: build context, call LLM, stream item events, emit done.
-    Precondition: articles is non-empty."""
-    article_context, article_meta = _build_article_context(articles)
-    system, user_message = _build_prompt(req, article_context, missing_topics)
-    primaries = [g[0] for g in topic_groups]
-    max_items = _resolve_count(req.mode, req.article_counts)
-
-    accumulated = ""
-    emitted_count = 0
-    item_index = 0
-    yielded_items = 0
-
-    with client.messages.stream(
-        model=QUALITY_MODELS.get(req.model_quality, QUALITY_MODELS["fast"]),
-        max_tokens=ARTICLE_SECTION_MAX_TOKENS,
-        system=system,
-        messages=[{"role": "user", "content": user_message}],
-    ) as stream:
-        for chunk in stream.text_stream:
-            accumulated += chunk
-            if yielded_items >= max_items:
-                continue
-            new_items, emitted_count = _parse_streaming_items(accumulated, emitted_count)
-            for raw_item in new_items:
-                current_index = item_index
-                item_index += 1
-                if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
-                    continue
-                if yielded_items >= max_items:
-                    continue
-                published_at, url, source, src_title, src_body = _resolve_meta(
-                    article_meta, raw_item.pop("source_index", None), current_index, now_iso
-                )
-                try:
-                    item = BriefingItem(
-                        **raw_item,
-                        published_at=published_at,
-                        url=url or None,
-                        source=source or None,
-                        source_title=src_title or None,
-                        source_body=src_body or None,
-                    )
-                    yield f"event: item\ndata: {item.model_dump_json()}\n\n"
-                    yielded_items += 1
-                except Exception:
-                    pass
-
-    overall_summary = None
-    if include_summary:
-        try:
-            data = json.loads(_strip_fences(accumulated.strip()))
-            overall_summary = data.get("overall_summary")
-        except json.JSONDecodeError:
-            pass
-
-    yield f"event: done\ndata: {json.dumps({'overall_summary': overall_summary, 'generated_at': now_iso, 'missing_topics': missing_topics, 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
-
-
 def generate_briefing_stream(req: BriefingRequest):
     """Generator that yields SSE-formatted strings.
-    Knowledge answer always streams first; classify + article fetch run concurrently in the background."""
+    Knowledge answer always streams first; the full background pipeline (classify + topics +
+    fetch + article LLM processing) runs concurrently so items are ready the moment k_done fires."""
     client = anthropic.Anthropic()
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
@@ -533,19 +470,22 @@ def generate_briefing_stream(req: BriefingRequest):
     # Always knowledge first — frontend initialises state immediately
     yield f"event: query_type\ndata: {json.dumps({'type': 'knowledge'})}\n\n"
 
-    def _background_pipeline() -> tuple[Optional[str], list, list]:
-        """Extract topics + fetch articles; runs concurrently with the knowledge stream."""
+    def _background_pipeline() -> tuple[Optional[str], list, list[BriefingItem]]:
+        """Classify + extract topics + fetch + compute article items; fully concurrent with knowledge stream."""
         try:
             title = classify_query(req.request, client)[1]
         except Exception:
             title = None
+        tgs: list = []
+        items: list[BriefingItem] = []
         try:
             tgs = _extract_topic_groups(req.request, client, location=req.location)
             arts = fetch_articles(tgs, max_per_topic=FETCH_PER_TOPIC, news_source=req.news_source, location=req.location) if tgs else []
             arts = _filter_relevant_articles(arts, req.request, client)
+            items = _compute_article_items(client, req, now_iso, tgs, arts)
         except Exception:
-            tgs, arts = [], []
-        return title, tgs, arts
+            pass
+        return title, tgs, items
 
     with ThreadPoolExecutor(max_workers=1) as bg:
         pipeline_future = bg.submit(_background_pipeline)
@@ -553,24 +493,21 @@ def generate_briefing_stream(req: BriefingRequest):
         # Stream knowledge answer immediately — no pre-flight wait
         yield from _knowledge_stream(client, req)
 
-        # Background pipeline ran concurrently; should be complete or nearly so
+        # Pipeline ran fully concurrently; generous timeout in case knowledge was unusually fast
         try:
-            title, topic_groups, articles = pipeline_future.result(timeout=5)
+            title, topic_groups, precomputed_items = pipeline_future.result(timeout=30)
         except Exception:
-            title, topic_groups, articles = None, [], []
+            title, topic_groups, precomputed_items = None, [], []
 
     if title:
         yield f"event: title\ndata: {json.dumps({'title': title})}\n\n"
 
-    if not articles or not topic_groups:
-        yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': []})}\n\n"
-        return
-
     primaries = [g[0] for g in topic_groups]
-    topics_with_articles = {a["topic"] for a in articles}
-    missing_topics = [t for t in primaries if t not in topics_with_articles]
 
-    yield from _stream_article_section(client, req, now_iso, keyword_trimmed, topic_groups, articles, missing_topics, include_summary=False)
+    for item in precomputed_items:
+        yield f"event: item\ndata: {item.model_dump_json()}\n\n"
+
+    yield f"event: done\ndata: {json.dumps({'overall_summary': None, 'generated_at': now_iso, 'missing_topics': [], 'keyword_trimmed': keyword_trimmed, 'topics': primaries})}\n\n"
 
 
 def generate_briefing(req: BriefingRequest) -> BriefingResponse:
