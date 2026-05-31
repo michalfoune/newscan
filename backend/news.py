@@ -7,12 +7,19 @@ from datetime import datetime, timedelta
 from typing import Optional
 from eventregistry import EventRegistry, QueryArticlesIter
 
-_BODY_LIMIT = 3000  # chars stored per article; LLM context truncates separately
+# ---------------------------------------------------------------------------
+# Limits
+# ---------------------------------------------------------------------------
+
+_BODY_LIMIT          = 3000  # chars stored per article body (LLM context uses ARTICLE_CONTEXT_BODY_CHARS in answer.py)
+_CACHE_TTL           = 300   # seconds; news article cache TTL
+NEWS_REQUEST_TIMEOUT = 5     # seconds; applied to GNews HTTP requests and EventRegistry fetches
+_FETCH_MIN_RESULTS   = 3     # minimum articles before widening the date window
+_FETCH_BUFFER        = 2     # fetch this multiple of max_results per call
+_FETCH_CAP           = 10    # hard cap on articles per API call
+_FETCH_MULTIPLIER    = 4     # EventRegistry: fetch this multiple of max_per_topic
 
 _cache: dict = {}
-_CACHE_TTL = 300  # 5 minutes
-
-NEWS_REQUEST_TIMEOUT = 5  # seconds; applied to both GNews HTTP requests and EventRegistry fetches
 
 
 _GNEWS_COUNTRY: dict = {"us": "us", "california": "us"}  # europe/global: omit
@@ -36,7 +43,7 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
         nonlocal _rate_limited
         if _rate_limited:
             return []
-        params: dict = {"q": keyword, "lang": "en", "max": min(max_results * 2, 10), "apikey": api_key, "from": from_date, "sortby": sortby}
+        params: dict = {"q": keyword, "lang": "en", "max": min(max_results * _FETCH_BUFFER, _FETCH_CAP), "apikey": api_key, "from": from_date, "sortby": sortby}
         if country:
             params["country"] = country
         try:
@@ -76,8 +83,6 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
                 break
         return results
 
-    ENOUGH = 3  # minimum articles before we stop widening the search window
-
     collected: list[dict] = []
     seen_urls: set[str] = set()
     seen_titles: set[str] = set()
@@ -92,19 +97,19 @@ def _fetch_gnews_group(group: list[str], max_results: int, location: str = "us")
 
     for keyword in group:
         _collect(keyword, date_2d)
-        if len(collected) >= ENOUGH:
+        if len(collected) >= _FETCH_MIN_RESULTS:
             break
 
-    if len(collected) < ENOUGH:
+    if len(collected) < _FETCH_MIN_RESULTS:
         for keyword in group:
             _collect(keyword, date_7d)
-            if len(collected) >= ENOUGH:
+            if len(collected) >= _FETCH_MIN_RESULTS:
                 break
 
-    if len(collected) < ENOUGH:
+    if len(collected) < _FETCH_MIN_RESULTS:
         for keyword in group:
             _collect(keyword, date_30d, sortby="relevance")
-            if len(collected) >= ENOUGH:
+            if len(collected) >= _FETCH_MIN_RESULTS:
                 break
 
     return collected[:max_results]
@@ -126,7 +131,7 @@ def fetch_articles(topic_groups: list[list[str]], max_per_topic: int = 4, news_s
         q = QueryArticlesIter(**kwargs)
         results = []
         seen: set[str] = set()
-        for article in q.execQuery(er, sortBy="rel", maxItems=max_per_topic * 4):
+        for article in q.execQuery(er, sortBy="rel", maxItems=max_per_topic * _FETCH_MULTIPLIER):
             url = article.get("url", "")
             if not url or url in seen:
                 continue

@@ -5,9 +5,9 @@ import openai as openai_lib
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from models import BriefingRequest, BriefingResponse, ChatRequest, ChatResponse, ChatStreamRequest, TTSRequest
-from briefing import generate_briefing, generate_briefing_stream
-from chat import answer_followup, answer_followup_stream
+from models import BriefingRequest, ChatStreamRequest, TTSRequest
+from answer import answer_stream
+from chat import answer_followup_stream
 
 app = FastAPI(title="Rizma Brief API")
 
@@ -52,30 +52,14 @@ def text_to_speech(req: TTSRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/briefing", response_model=BriefingResponse)
-def create_briefing(req: BriefingRequest):
-    try:
-        return generate_briefing(req)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/api/briefing/stream")
 def create_briefing_stream(req: BriefingRequest):
     try:
         return StreamingResponse(
-            generate_briefing_stream(req),
+            answer_stream(req),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    try:
-        return answer_followup(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
