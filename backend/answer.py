@@ -67,9 +67,12 @@ TOPIC_EXTRACTION_PROMPT = (
     "Extract the main news topics from the user's request. "
     "Return a JSON array of topic groups. Each group is an array of 2–3 keyword search strings for the SAME topic, "
     "ordered from most natural to broadest. Vary word order and phrasing across alternatives so they match differently "
-    "in a keyword search engine (e.g. ['Midterms in Indiana', 'Indiana midterm elections', 'Indiana primary 2026']). "
+    "in a keyword search engine (e.g. ['Midterms in Indiana', 'Indiana midterm elections', 'Indiana midterm races']). "
     "Use 2–4 nouns or proper nouns per string — no verbs, adjectives, or question words. "
     "Each string must be something that would literally appear in a news headline. "
+    "Translate the user's conversational phrasing into the vocabulary news headlines actually use: "
+    "'frontrunners' → 'leading candidates', 'what's happening with X' → just 'X', 'any news on X' → just 'X', "
+    "'latest on X' → just 'X'. Do not carry over the user's wording when it would not appear in a headline. "
     "CRITICAL: Named entities — country names, city names, organizations, people — must appear in EVERY string in the group. "
     "When the request names two distinct subjects, return a separate group for each. Maximum 2 groups. "
     'Examples: [["United States elections", "US elections", "American elections"]] | '
