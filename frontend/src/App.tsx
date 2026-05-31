@@ -400,6 +400,7 @@ export default function App() {
   const lastScrollY = useRef(0);
   const isStreamingRef = useRef(false);
   const userScrolledUpRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
   const [showStickyNav, setShowStickyNav] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const settingsOpenRef = useRef(false);
@@ -413,6 +414,7 @@ export default function App() {
       const distFromBottom = document.documentElement.scrollHeight - scrollY - window.innerHeight;
       const scrollingUp = scrollY < lastScrollY.current;
       lastScrollY.current = scrollY;
+      if (isProgrammaticScrollRef.current) return;
       if (isStreamingRef.current && scrollingUp) userScrolledUpRef.current = true;
       setShowStickyNav(scrollY > headerHeight && scrollingUp);
       setShowScrollDown(distFromBottom > 250);
@@ -430,7 +432,11 @@ export default function App() {
   useEffect(() => {
     if (!streamingKnowledge || userScrolledUpRef.current) return;
     const distFromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
-    if (distFromBottom < 300) window.scrollTo({ top: document.documentElement.scrollHeight });
+    if (distFromBottom < 300) {
+      isProgrammaticScrollRef.current = true;
+      window.scrollTo({ top: document.documentElement.scrollHeight });
+      requestAnimationFrame(() => { isProgrammaticScrollRef.current = false; });
+    }
   }, [streamingKnowledge]);
 
   const handlePrefsChange = (v: string) => {
