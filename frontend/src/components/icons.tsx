@@ -58,7 +58,7 @@ export function StopSquareIcon() {
 
 export function MicIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+    <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
       <rect x="5.5" y="1" width="5" height="9" rx="2.5" stroke="currentColor" strokeWidth="1.4"/>
       <path d="M2.5 8a5.5 5.5 0 0011 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
       <line x1="8" y1="14" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
