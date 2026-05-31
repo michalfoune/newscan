@@ -961,6 +961,12 @@ textarea::placeholder {
   gap: 1rem;
 }
 
+.knowledge-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
 .feed-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

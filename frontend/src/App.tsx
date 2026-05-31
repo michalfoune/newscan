@@ -320,6 +320,23 @@ function ConversationTTSSync({ activeId }: { activeId: string | null }) {
   return null;
 }
 
+function BottomPlayButton({ text, mode }: { text: string; mode: Mode }) {
+  const { state, play } = useTTSContext();
+  if (state !== 'idle' || !text) return null;
+  return (
+    <div style={{ marginTop: 'calc(0.3rem - 2rem)' }}>
+      <button
+        type="button"
+        className="hover-action-btn tts-btn tts-btn--sm"
+        data-tooltip="Listen"
+        onClick={() => play(text, 'knowledge', mode)}
+      >
+        <PlayIcon />
+      </button>
+    </div>
+  );
+}
+
 function ConnectedTTSPlayerBar() {
   const { state, chunkIdx, totalChunks, currentMode, skipChunk, togglePause, stop } = useTTSContext();
   return (
@@ -364,6 +381,8 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const lastScrollY = useRef(0);
+  const isStreamingRef = useRef(false);
+  const userScrolledUpRef = useRef(false);
   const [showStickyNav, setShowStickyNav] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const settingsOpenRef = useRef(false);
@@ -377,6 +396,7 @@ export default function App() {
       const distFromBottom = document.documentElement.scrollHeight - scrollY - window.innerHeight;
       const scrollingUp = scrollY < lastScrollY.current;
       lastScrollY.current = scrollY;
+      if (isStreamingRef.current && scrollingUp) userScrolledUpRef.current = true;
       setShowStickyNav(scrollY > headerHeight && scrollingUp);
       setShowScrollDown(distFromBottom > 250);
     };
@@ -389,6 +409,12 @@ export default function App() {
     const id = setInterval(() => setElapsed(s => s + 1), 1000);
     return () => clearInterval(id);
   }, [loading]);
+
+  useEffect(() => {
+    if (!streamingKnowledge || userScrolledUpRef.current) return;
+    const distFromBottom = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+    if (distFromBottom < 300) window.scrollTo({ top: document.documentElement.scrollHeight });
+  }, [streamingKnowledge]);
 
   const handlePrefsChange = (v: string) => {
     setSystemPreferences(v);
@@ -429,6 +455,8 @@ export default function App() {
 
   const handleSubmit = async (req: BriefingRequest) => {
     abortRef.current = new AbortController();
+    userScrolledUpRef.current = false;
+    isStreamingRef.current = true;
     setLoading(true);
     setError(null);
     setResponse(null);
@@ -603,6 +631,7 @@ export default function App() {
         setError(err.message);
       }
     } finally {
+      isStreamingRef.current = false;
       setLoading(false);
       abortRef.current = null;
     }
@@ -646,6 +675,16 @@ export default function App() {
   };
 
   const chatContext = response ? buildChatContext(currentQuery, response, thread) : '';
+
+  const knowledgePlayText = (!streamingKnowledge && response?.knowledgeAnswer)
+    ? (() => {
+        const base = stripMarkdown(response.knowledgeAnswer);
+        const relText = response.items.length > 0
+          ? response.items.map(i => `${i.headline}. ${i.summary}${i.why_it_matters ? ' ' + i.why_it_matters : ''}`).join(' ')
+          : undefined;
+        return relText ? base + ' Related coverage. ' + relText : base;
+      })()
+    : '';
 
   return (
     <TTSProvider apiUrl={API_URL}>
@@ -784,24 +823,27 @@ export default function App() {
           {/* Knowledge path */}
           {(streamingKnowledge || response?.knowledgeAnswer) && (
             <>
-              <KnowledgeAnswer
-                answer={response?.knowledgeAnswer ?? ''}
-                streamingAnswer={streamingKnowledge || undefined}
-                knowledgeCutoff={response?.knowledgeCutoff}
-                mode={mode}
-                generationSeconds={response?.knowledgeAnswer ? generationSeconds : null}
-                generatedAt={response?.generated_at}
-                t={t}
-                apiUrl={API_URL}
-                relatedCoverageText={
-                  response && response.items.length > 0
-                    ? response.items.map(i => `${i.headline}. ${i.summary}${i.why_it_matters ? ' ' + i.why_it_matters : ''}`).join(' ')
-                    : undefined
-                }
-              />
-              {response && response.items.length > 0 && (
-                <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage apiUrl={API_URL} />
-              )}
+              <div className="knowledge-block">
+                <KnowledgeAnswer
+                  answer={response?.knowledgeAnswer ?? ''}
+                  streamingAnswer={streamingKnowledge || undefined}
+                  knowledgeCutoff={response?.knowledgeCutoff}
+                  mode={mode}
+                  generationSeconds={response?.knowledgeAnswer ? generationSeconds : null}
+                  generatedAt={response?.generated_at}
+                  t={t}
+                  apiUrl={API_URL}
+                  relatedCoverageText={
+                    response && response.items.length > 0
+                      ? response.items.map(i => `${i.headline}. ${i.summary}${i.why_it_matters ? ' ' + i.why_it_matters : ''}`).join(' ')
+                      : undefined
+                  }
+                />
+                {response && response.items.length > 0 && (
+                  <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage apiUrl={API_URL} />
+                )}
+                <BottomPlayButton text={knowledgePlayText} mode={mode} />
+              </div>
               <div className="section-divider" />
               <ChatInterface
                 key={activeId ?? 'new'}
