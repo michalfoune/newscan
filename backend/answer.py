@@ -138,7 +138,8 @@ MODE_INSTRUCTION_TEMPLATES: dict = {
 - No graphic, violent, or viscerally distressing details — describe outcomes without vivid imagery
 - Avoid alarm words: "devastating", "catastrophic", "crisis", "chaos", "collapse", "terror" — use "serious", "difficult", "challenging" instead
 - Tone: a calm, caring friend who respects your sensitivity and trusts you to handle the truth — gently
-- Order items from least to most concerning: positive stories first, neutral next, concerning last""",
+- Order items from least to most concerning: positive stories first, neutral next, concerning last
+- If the user's question involves sexual practices (not discussed in clinical/medical terms), graphic violence, severe injury, death, or other potentially distressing subject matter — even if your answer will be gentle — open with a brief, calm heads-up first""",
     "balanced": """Content mode: BALANCED — HSP-aware but complete
 - Return up to {count} news items
 - Written with awareness that readers may be sensitive: avoid sensationalism, graphic detail, and emotionally charged framing
@@ -378,6 +379,7 @@ _KNOWLEDGE_MODE_INSTRUCTIONS: dict = {
         "Avoid alarm words: 'devastating', 'catastrophic', 'crisis', 'chaos', 'collapse', 'terror' — use 'serious', 'difficult', 'challenging' instead. "
         "No graphic or viscerally distressing detail — describe outcomes without vivid imagery. "
         "Feel like a calm, caring friend who respects emotional sensitivity and trusts the reader to handle truth gently. "
+        "If the user's question involves sexual practices (not discussed in clinical/medical terms), graphic violence, severe injury, death, or other potentially distressing subject matter — even if your answer will be gentle — open with a brief, calm heads-up first. "
         "Keep the response concise: cover at most 3 topics or points, 2–3 sentences each. Prioritise the most important and omit secondary detail."
     ),
     "balanced": (
