@@ -7,7 +7,7 @@ import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversa
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown, stripMarkdown } from './utils/markdown';
 import { TTSProvider, useTTSContext } from './contexts/TTSContext';
-import { HamburgerIcon, PlayIcon, SettingsIcon } from './components/icons';
+import { CopyIcon, HamburgerIcon, PlayIcon, SettingsIcon } from './components/icons';
 import { TTSPlayerBar } from './components/TTSPlayerBar';
 import './App.css';
 
@@ -320,19 +320,36 @@ function ConversationTTSSync({ activeId }: { activeId: string | null }) {
   return null;
 }
 
-function BottomPlayButton({ text, mode }: { text: string; mode: Mode }) {
+function BottomPlayButton({ text, mode, answer, alwaysVisible }: { text: string; mode: Mode; answer: string; alwaysVisible: boolean }) {
   const { state, play } = useTTSContext();
-  if (state !== 'idle' || !text) return null;
+  const [copied, setCopied] = useState(false);
+  if (!answer) return null;
+  const handleCopy = () => {
+    navigator.clipboard.writeText(answer).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
   return (
-    <div style={{ marginTop: 'calc(0.3rem - 2rem)' }}>
+    <div className={`hover-actions${alwaysVisible ? ' hover-actions--visible' : ''}`} style={{ marginTop: 'calc(0.3rem - 2rem)' }}>
       <button
         type="button"
-        className="hover-action-btn tts-btn tts-btn--sm"
-        data-tooltip="Listen"
-        onClick={() => play(text, 'knowledge', mode)}
+        className="hover-action-btn"
+        data-tooltip={copied ? 'Copied!' : 'Copy'}
+        onClick={handleCopy}
       >
-        <PlayIcon />
+        <CopyIcon size={21} />
       </button>
+      {state === 'idle' && text && (
+        <button
+          type="button"
+          className="hover-action-btn tts-btn tts-btn--sm"
+          data-tooltip="Listen"
+          onClick={() => play(text, 'knowledge', mode)}
+        >
+          <PlayIcon />
+        </button>
+      )}
     </div>
   );
 }
@@ -811,7 +828,10 @@ export default function App() {
             apiUrl={API_URL}
           />
           {loading && (!response || (response.items.length === 0 && !streamingKnowledge && !response.knowledgeAnswer)) && (
-            <p className="generating-status">Thinking… {elapsed}s</p>
+            <div className="generating-status">
+              <span className="thinking-dot" style={{ background: MODE_COLORS[mode] }} />
+              Thinking… {elapsed}s
+            </div>
           )}
           {error && <div className="error-banner">{error}</div>}
           {response && response.items.length === 0 && !loading && !response.knowledgeAnswer && !streamingKnowledge && (
@@ -842,7 +862,7 @@ export default function App() {
                 {response && response.items.length > 0 && (
                   <BriefingFeed response={response} t={t} mode={mode} generationSeconds={null} showKeywords={showKeywords} relatedCoverage apiUrl={API_URL} />
                 )}
-                <BottomPlayButton text={knowledgePlayText} mode={mode} />
+                <BottomPlayButton text={knowledgePlayText} mode={mode} answer={response?.knowledgeAnswer ?? ''} alwaysVisible={thread.length === 0} />
               </div>
               <div className="section-divider" />
               <ChatInterface

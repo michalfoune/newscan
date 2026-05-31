@@ -8,6 +8,15 @@ import { useTTSContext } from '../contexts/TTSContext';
 import { stripMarkdown } from '../utils/markdown';
 import { ChevronDownIcon, ChevronUpIcon, CloseIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 
+function ThinkingDots({ color }: { color: string }) {
+  return (
+    <>
+      <span className="thinking-dot" style={{ background: color }} />
+      <span className="thinking-label">Thinking…</span>
+    </>
+  );
+}
+
 const MODES: Mode[] = ['calm', 'balanced', 'brave'];
 
 const MODE_COLORS: Record<Mode, string> = {
@@ -295,7 +304,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           {showTypingDots && (
             <div className="chat-msg-wrap chat-msg-wrap--assistant">
               <div className="chat-msg chat-msg--assistant chat-msg--typing">
-                <span className="dot" /><span className="dot" /><span className="dot" />
+                <ThinkingDots color={MODE_COLORS[chatMode]} />
               </div>
               {statusMsg && <span className="chat-status-msg">{statusMsg}{fetchElapsed > 0 ? ` ${fetchElapsed}s` : ''}</span>}
             </div>
