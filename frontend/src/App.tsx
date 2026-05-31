@@ -763,7 +763,7 @@ export default function App() {
             apiUrl={API_URL}
           />
           {loading && (!response || (response.items.length === 0 && !streamingKnowledge && !response.knowledgeAnswer)) && (
-            <p className="generating-status">Generating… {elapsed}s</p>
+            <p className="generating-status">Thinking… {elapsed}s</p>
           )}
           {error && <div className="error-banner">{error}</div>}
           {response && response.items.length === 0 && !loading && !response.knowledgeAnswer && !streamingKnowledge && (

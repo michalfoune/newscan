@@ -2,10 +2,23 @@ import json
 import logging
 from typing import Optional, Tuple
 import anthropic
-from models import ChatRequest, ChatResponse, ChatStreamRequest
+from models import ChatStreamRequest
 from news import fetch_articles
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Limits
+# ---------------------------------------------------------------------------
+
+# Token limits
+CHAT_CLASSIFY_MAX_TOKENS   = 64    # Haiku: classify followup action (answer vs fetch)
+CHAT_MAX_TOKENS            = 8000  # streaming followup response cap
+
+# Context window
+CHAT_CONTEXT_PREVIEW_CHARS = 700   # chars of briefing context shown to the classifier
+CHAT_HISTORY_WINDOW        = 6     # recent messages included in classify input
+CHAT_HISTORY_MSG_CHARS     = 250   # chars per message in history summary
 
 CHAT_SYSTEM = """You are Rizma Brief, an AI news assistant helping users go deeper on a topic.
 
@@ -35,8 +48,6 @@ REASONING_MODELS: dict = {
     "standard": "claude-sonnet-4-6",
     "best": "claude-opus-4-7",
 }
-
-CHAT_MAX_TOKENS = 8000  # cap chat follow-up responses; system prompt targets 60-90 words but allows longer for complex questions
 
 CHAT_MODE_INSTRUCTIONS: dict = {
     "calm": """Tone — CALM (highly sensitive person / HSP mode):
@@ -90,7 +101,7 @@ def _classify(context: str, question: str) -> Tuple[str, Optional[str]]:
     try:
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=64,
+            max_tokens=CHAT_CLASSIFY_MAX_TOKENS,
             system=CHAT_CLASSIFIER_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -143,33 +154,6 @@ def _build_system(req, context_block: str) -> str:
     )
 
 
-def answer_followup(req: ChatRequest) -> ChatResponse:
-    last_user_msg = next(
-        (m.content for m in reversed(req.messages) if m.role == "user"), ""
-    )
-    short_context = req.context[:700] + ("…" if len(req.context) > 700 else "")
-    action, query = _classify(short_context, last_user_msg)
-
-    supplemental = ""
-    if action == "fetch" and query:
-        supplemental = _build_supplemental_context(query)
-
-    context_block = f"ORIGINAL CONTEXT (user has already seen this):\n{req.context}"
-    if supplemental:
-        context_block += f"\n\nFRESH ARTICLES:\n{supplemental}"
-
-    client = anthropic.Anthropic()
-    message = client.messages.create(
-        model=REASONING_MODELS.get(getattr(req, "model_quality", "fast"), REASONING_MODELS["fast"]),
-        max_tokens=1024,
-        system=_build_system(req, context_block),
-        messages=[{"role": m.role, "content": m.content} for m in req.messages],
-        tools=[WEB_SEARCH_TOOL],
-    )
-    text = next((b.text for b in message.content if hasattr(b, "text")), "")
-    return ChatResponse(reply=text.strip())
-
-
 def answer_followup_stream(req: ChatStreamRequest):
     """SSE generator for streaming chat responses.
 
@@ -183,10 +167,10 @@ def answer_followup_stream(req: ChatStreamRequest):
 
     yield f"event: status\ndata: {json.dumps({'stage': 'thinking'})}\n\n"
 
-    short_context = req.context[:700] + ("…" if len(req.context) > 700 else "")
-    recent_msgs = req.messages[-6:]
+    short_context = req.context[:CHAT_CONTEXT_PREVIEW_CHARS] + ("…" if len(req.context) > CHAT_CONTEXT_PREVIEW_CHARS else "")
+    recent_msgs = req.messages[-CHAT_HISTORY_WINDOW:]
     recent_history = "\n".join(
-        f"{m.role.upper()}: {m.content[:250]}{'…' if len(m.content) > 250 else ''}"
+        f"{m.role.upper()}: {m.content[:CHAT_HISTORY_MSG_CHARS]}{'…' if len(m.content) > CHAT_HISTORY_MSG_CHARS else ''}"
         for m in recent_msgs
     )
     classify_input = f"Latest message: {req.new_message}\n\nRecent conversation:\n{recent_history}"
