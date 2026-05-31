@@ -246,6 +246,10 @@
   padding: 0;
 }
 
+button {
+  touch-action: manipulation;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 16px;
@@ -1721,12 +1725,15 @@ textarea::placeholder {
   justify-content: center;
   gap: 0.75rem;
   transform: translateY(-100%);
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, visibility 0s linear 0.2s;
+  visibility: hidden;
   pointer-events: none;
 }
 
 .sticky-nav--visible {
   transform: translateY(0);
+  transition: transform 0.2s ease, visibility 0s linear 0s;
+  visibility: visible;
   pointer-events: auto;
 }
 
