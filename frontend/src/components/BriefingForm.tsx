@@ -75,7 +75,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
   if (collapsed && hasResults && !loading) {
     return (
       <div className="briefing-collapsed-wrap">
-        <div className="briefing-collapsed" onClick={() => setCollapsed(false)} role="button" tabIndex={0}
+        <div className="briefing-collapsed" onClick={(e) => { if (!(e.target as Element).closest('button')) setCollapsed(false); }} role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCollapsed(false); }}>
           <span ref={!queryExpanded ? queryClampRef : undefined} className={!queryExpanded ? 'briefing-collapsed-query msg-text-clamped' : 'briefing-collapsed-query'}>{submittedRequest}</span>
           {queryOverflow && (
