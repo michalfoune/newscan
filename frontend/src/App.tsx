@@ -312,6 +312,14 @@ function loadConversations(): Conversation[] {
   }
 }
 
+function ConversationTTSSync({ activeId }: { activeId: string | null }) {
+  const { stop } = useTTSContext();
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(() => { stopRef.current(); }, [activeId]);
+  return null;
+}
+
 function ConnectedTTSPlayerBar() {
   const { state, chunkIdx, totalChunks, currentMode, skipChunk, togglePause, stop } = useTTSContext();
   return (
@@ -641,6 +649,7 @@ export default function App() {
 
   return (
     <TTSProvider apiUrl={API_URL}>
+    <ConversationTTSSync activeId={activeId} />
     <div className="app" style={{ background: MODE_BG[mode] }}>
       <div className={`sticky-nav${showStickyNav ? ' sticky-nav--visible' : ''}`}>
         <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle history">

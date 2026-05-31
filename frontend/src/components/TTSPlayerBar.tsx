@@ -23,8 +23,8 @@ export function TTSPlayerBar({ state, chunkIdx, totalChunks, onPrev, onNext, onP
   if (state === 'idle') return null;
 
   const isLoading = state === 'loading';
-  const canPrev = chunkIdx > 0 && !isLoading;
-  const canNext = chunkIdx < totalChunks - 1 && !isLoading;
+  const canPrev = chunkIdx > 0;
+  const canNext = chunkIdx < totalChunks - 1;
   const progress = totalChunks > 0 ? (chunkIdx / totalChunks) * 100 : 0;
   const accent = MODE_ACCENT[mode ?? 'calm'];
 
