@@ -783,7 +783,7 @@ export default function App() {
             </button>
             <h1 className="app-title">
               <img src="/android-chrome-192x192.png" alt="" className="app-title-icon" />
-              Rizma Brief
+              Rizma
             </h1>
             <div className="settings-wrap">
               <button
