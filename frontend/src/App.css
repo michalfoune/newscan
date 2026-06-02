@@ -1305,7 +1305,7 @@ textarea::placeholder {
 }
 
 @keyframes breathe {
-  0%, 100% { transform: scale(0.55); opacity: 0.45; }
+  0%, 100% { transform: scale(0.69); opacity: 0.45; }
   50%       { transform: scale(1.05); opacity: 1; }
 }
 
