@@ -69,8 +69,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
 
   const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice, analyserRef } = useVoiceInput({
     apiUrl,
-    onTranscript: (text) => {
-      setInput(prev => prev.trimEnd() ? prev.trimEnd() + ' ' + text : text);
+    onTranscript: (text, autoSubmit) => {
+      const next = input.trimEnd() ? input.trimEnd() + ' ' + text : text;
+      setInput(next);
+      if (autoSubmit) send(next);
     },
   });
 

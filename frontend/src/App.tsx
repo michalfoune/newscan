@@ -721,7 +721,7 @@ export default function App() {
         </button>
         <span className="sticky-nav-title">
           <img src="/android-chrome-192x192.png" alt="" className="sticky-nav-icon" />
-          Rizma Brief
+          Rizma
         </span>
         <div className="settings-wrap">
           <button

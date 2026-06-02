@@ -49,8 +49,10 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
 
   const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice, analyserRef } = useVoiceInput({
     apiUrl,
-    onTranscript: (text) => {
-      setRequest(prev => prev.trimEnd() ? prev.trimEnd() + ' ' + text : text);
+    onTranscript: (text, autoSubmit) => {
+      const next = request.trimEnd() ? request.trimEnd() + ' ' + text : text;
+      setRequest(next);
+      if (autoSubmit) submitRequest(next);
     },
   });
 

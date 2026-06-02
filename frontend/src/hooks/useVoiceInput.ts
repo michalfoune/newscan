@@ -4,8 +4,10 @@ export type VoiceState = 'idle' | 'recording' | 'processing' | 'error';
 
 interface UseVoiceInputOptions {
   apiUrl: string;
-  onTranscript: (text: string) => void;
+  onTranscript: (text: string, autoSubmit: boolean) => void;
 }
+
+const isMobile = () => navigator.maxTouchPoints > 0;
 
 export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
   const [state, setState] = useState<VoiceState>('idle');
@@ -78,7 +80,7 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
             }
           } else {
             setState('idle');
-            onTranscript(text);
+            onTranscript(text, isMobile());
           }
         } catch (err) {
           if (err instanceof Error && err.name === 'AbortError') return;
