@@ -252,6 +252,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                   <div className={`hover-actions${isLastAssistant ? ' hover-actions--visible' : ''}`}>
                     <button
                       type="button"
+                      tabIndex={-1}
                       className="hover-action-btn"
                       data-tooltip={copiedIdx === i ? 'Copied!' : 'Copy'}
                       onClick={() => copyMsg(item.content, i)}
@@ -261,6 +262,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                     {item.role === 'assistant' && ttsState === 'idle' && (
                       <button
                         type="button"
+                        tabIndex={-1}
                         className="hover-action-btn tts-btn tts-btn--sm"
                         data-tooltip="Listen"
                         onClick={() => handleTTS(item.content, i)}

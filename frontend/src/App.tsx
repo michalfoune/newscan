@@ -334,6 +334,7 @@ function BottomPlayButton({ text, mode, answer, alwaysVisible }: { text: string;
     <div className={`hover-actions${alwaysVisible ? ' hover-actions--visible' : ''}`} style={{ marginTop: 'calc(0.3rem - 2rem)' }}>
       <button
         type="button"
+        tabIndex={-1}
         className="hover-action-btn"
         data-tooltip={copied ? 'Copied!' : 'Copy'}
         onClick={handleCopy}
@@ -343,6 +344,7 @@ function BottomPlayButton({ text, mode, answer, alwaysVisible }: { text: string;
       {state === 'idle' && text && (
         <button
           type="button"
+          tabIndex={-1}
           className="hover-action-btn tts-btn tts-btn--sm"
           data-tooltip="Listen"
           onClick={() => play(text, 'knowledge', mode)}

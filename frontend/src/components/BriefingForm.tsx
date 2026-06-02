@@ -86,11 +86,11 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
           )}
         </div>
         <div className="hover-actions">
-          <button type="button" className="hover-action-btn" data-tooltip={copied ? 'Copied!' : 'Copy'}
+          <button type="button" tabIndex={-1} className="hover-action-btn" data-tooltip={copied ? 'Copied!' : 'Copy'}
             onClick={(e) => { e.stopPropagation(); copyQuery(); }}>
             <CopyIcon />
           </button>
-          <button type="button" className="hover-action-btn" data-tooltip="Edit"
+          <button type="button" tabIndex={-1} className="hover-action-btn" data-tooltip="Edit"
             onClick={() => setCollapsed(false)}>
             <EditIcon />
           </button>
