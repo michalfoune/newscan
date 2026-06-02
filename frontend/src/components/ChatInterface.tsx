@@ -47,8 +47,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [pendingText, setPendingText] = useState('');
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [fetchElapsed, setFetchElapsed] = useState(0);
+
   const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
   const [overflowMsgs, setOverflowMsgs] = useState<Set<number>>(new Set());
   const overflowMeasuredRef = useRef<Set<number>>(new Set());
@@ -75,15 +74,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     },
   });
 
-  useEffect(() => {
-    if (statusMsg === 'Thinking…') {
-      setFetchElapsed(0);
-      const id = setInterval(() => setFetchElapsed(s => s + 1), 1000);
-      return () => clearInterval(id);
-    } else {
-      setFetchElapsed(0);
-    }
-  }, [statusMsg]);
+
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -135,7 +126,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     setInput('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setSending(true);
-    setStatusMsg(null);
     setPendingText('');
 
     abortRef.current = new AbortController();
@@ -184,18 +174,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           } else if (line.startsWith('data: ')) {
             dataLine = line.slice(6);
           } else if (line === '') {
-            if (eventType === 'status' && dataLine) {
-              const data = JSON.parse(dataLine);
-              if (data.stage === 'fetching_articles') {
-                setStatusMsg('Thinking…');
-              } else {
-                setStatusMsg(null);
-              }
-            } else if (eventType === 'reply_chunk' && dataLine) {
+            if (eventType === 'reply_chunk' && dataLine) {
               const data = JSON.parse(dataLine);
               accText += data.chunk;
               setPendingText(accText);
-              setStatusMsg(null);
             } else if (eventType === 'reply_done') {
               const assistantItem: ThreadItem = { type: 'message', role: 'assistant', content: accText };
               onThreadChange([...threadWithUser, assistantItem]);
@@ -203,7 +185,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               accText = '';
             } else if (eventType === 'done') {
               setSending(false);
-              setStatusMsg(null);
             }
 
             eventType = '';
@@ -222,7 +203,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
       }
     } finally {
       setSending(false);
-      setStatusMsg(null);
       setPendingText('');
       abortRef.current = null;
     }
@@ -302,11 +282,8 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
           })}
 
           {showTypingDots && (
-            <div className="chat-msg-wrap chat-msg-wrap--assistant">
-              <div className="chat-msg chat-msg--assistant chat-msg--typing">
-                <ThinkingDots color={MODE_COLORS[chatMode]} />
-              </div>
-              {statusMsg && <span className="chat-status-msg">{statusMsg}{fetchElapsed > 0 ? ` ${fetchElapsed}s` : ''}</span>}
+            <div className="chat-thinking-status">
+              <ThinkingDots color={MODE_COLORS[chatMode]} />
             </div>
           )}
 

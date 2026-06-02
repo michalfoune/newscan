@@ -1283,11 +1283,11 @@ textarea::placeholder {
   border-bottom-left-radius: 3px;
 }
 
-.chat-msg--typing {
+.chat-thinking-status {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.75rem 0.9rem;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
 }
 
 .thinking-dot {
