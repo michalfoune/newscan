@@ -4,10 +4,8 @@ export type VoiceState = 'idle' | 'recording' | 'processing' | 'error';
 
 interface UseVoiceInputOptions {
   apiUrl: string;
-  onTranscript: (text: string, autoSubmit: boolean) => void;
+  onTranscript: (text: string) => void;
 }
-
-const isMobile = () => navigator.maxTouchPoints > 0;
 
 export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
   const [state, setState] = useState<VoiceState>('idle');
@@ -16,11 +14,28 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
+  const teardownAudio = () => {
+    analyserRef.current = null;
+    audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+  };
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+
+      const audioCtx = new AudioContext();
+      audioCtxRef.current = audioCtx;
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+
       const recorder = new MediaRecorder(stream);
       recorderRef.current = recorder;
       chunksRef.current = [];
@@ -31,6 +46,7 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
       };
 
       recorder.onstop = async () => {
+        teardownAudio();
         streamRef.current?.getTracks().forEach(t => t.stop());
         streamRef.current = null;
         recorderRef.current = null;
@@ -39,10 +55,15 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         setState('processing');
 
+        fetchAbortRef.current = new AbortController();
         try {
           const form = new FormData();
           form.append('audio', blob, 'recording.webm');
-          const res = await fetch(`${apiUrl}/api/transcribe`, { method: 'POST', body: form });
+          const res = await fetch(`${apiUrl}/api/transcribe`, {
+            method: 'POST',
+            body: form,
+            signal: fetchAbortRef.current.signal,
+          });
           if (!res.ok) throw new Error('Transcription failed');
           const data = await res.json();
           const text: string = (data.text ?? '').trim();
@@ -57,12 +78,15 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
             }
           } else {
             setState('idle');
-            onTranscript(text, isMobile());
+            onTranscript(text);
           }
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return;
           setErrorMsg('Transcription failed. Please try again.');
           setState('error');
           setTimeout(() => { setState('idle'); setErrorMsg(null); }, 4000);
+        } finally {
+          fetchAbortRef.current = null;
         }
       };
 
@@ -82,6 +106,9 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
   };
 
   const cancel = () => {
+    fetchAbortRef.current?.abort();
+    fetchAbortRef.current = null;
+    teardownAudio();
     if (recorderRef.current) {
       recorderRef.current.ondataavailable = null;
       recorderRef.current.onstop = null;
@@ -96,5 +123,5 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
     setErrorMsg(null);
   };
 
-  return { state, errorMsg, startRecording, stopRecording, cancel };
+  return { state, errorMsg, startRecording, stopRecording, cancel, analyserRef };
 }

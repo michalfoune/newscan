@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 import { useVoiceInput } from '../hooks/useVoiceInput';
-import { ChevronDownIcon, ChevronUpIcon, CloseIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { ChevronDownIcon, ChevronUpIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { VoiceBar } from './VoiceBar';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
@@ -46,11 +47,10 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
     submitRequest(request.trim());
   };
 
-  const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice } = useVoiceInput({
+  const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice, analyserRef } = useVoiceInput({
     apiUrl,
-    onTranscript: (text, autoSubmit) => {
-      setRequest(text);
-      if (autoSubmit) submitRequest(text);
+    onTranscript: (text) => {
+      setRequest(prev => prev.trimEnd() ? prev.trimEnd() + ' ' + text : text);
     },
   });
 
@@ -101,59 +101,35 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
 
   return (
     <form onSubmit={handleSubmit} className="briefing-form">
-      <div className="query-box" style={{ '--voice-color': MODE_COLORS[mode] } as React.CSSProperties}>
-        <textarea
-          id="request"
-          value={request}
-          onChange={(e) => setRequest(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              if (request.trim() && !loading) handleSubmit(e as unknown as React.FormEvent);
-            }
-          }}
-          placeholder={t.requestPlaceholder}
-          rows={2}
-          disabled={loading}
+      {voiceState !== 'idle' ? (
+        <VoiceBar
+          state={voiceState}
+          errorMsg={voiceError}
+          analyserRef={analyserRef}
+          onStop={stopRecording}
+          onCancel={cancelVoice}
         />
-
-        {voiceState !== 'idle' ? (
-          <div className="query-box-footer query-box-footer--voice">
-            <button type="button" className="voice-cancel-btn" onClick={cancelVoice} title="Cancel">
-              <CloseIcon />
-            </button>
-            <div className="voice-indicator">
-              {voiceState === 'recording' && (
-                <>
-                  <div className="voice-bars"><span/><span/><span/><span/></div>
-                  <span className="voice-label">Listening…</span>
-                </>
-              )}
-              {voiceState === 'processing' && (
-                <>
-                  <div className="voice-spinner" />
-                  <span className="voice-label">Transcribing…</span>
-                </>
-              )}
-              {voiceState === 'error' && (
-                <span className="voice-error-inline">{voiceError}</span>
-              )}
-            </div>
-            <button
-              type="button"
-              className="query-submit-btn"
-              onClick={voiceState === 'recording' ? stopRecording : undefined}
-              disabled={voiceState !== 'recording'}
-            >
-              <SubmitArrowIcon />
-            </button>
-          </div>
-        ) : (
+      ) : (
+        <div className="query-box" style={{ '--voice-color': MODE_COLORS[mode] } as React.CSSProperties}>
+          <textarea
+            id="request"
+            value={request}
+            onChange={(e) => setRequest(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (request.trim() && !loading) handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
+            placeholder={t.requestPlaceholder}
+            rows={2}
+            disabled={loading}
+          />
           <div className="query-box-footer">
             <button
               type="button"
               className="mic-btn"
-              onClick={() => { setRequest(''); startRecording(); }}
+              onClick={startRecording}
               disabled={loading}
               title="Voice input"
             >
@@ -185,8 +161,8 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="category-pills">
         {t.categories.map((cat, i) => (

@@ -6,7 +6,8 @@ import { renderMarkdown } from '../utils/markdown';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useTTSContext } from '../contexts/TTSContext';
 import { stripMarkdown } from '../utils/markdown';
-import { ChevronDownIcon, ChevronUpIcon, CloseIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { ChevronDownIcon, ChevronUpIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
+import { VoiceBar } from './VoiceBar';
 
 function ThinkingDots({ color }: { color: string }) {
   return (
@@ -66,11 +67,10 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     }
   };
 
-  const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice } = useVoiceInput({
+  const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice, analyserRef } = useVoiceInput({
     apiUrl,
-    onTranscript: (text, autoSubmit) => {
-      setInput(text);
-      if (autoSubmit) send(text);
+    onTranscript: (text) => {
+      setInput(prev => prev.trimEnd() ? prev.trimEnd() + ' ' + text : text);
     },
   });
 
@@ -301,49 +301,26 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
         </div>
       )}
 
-      <div className="query-box" style={{ '--voice-color': MODE_COLORS[chatMode] } as React.CSSProperties}>
-        <textarea
-          ref={textareaRef}
-          className="chat-query-input"
-          value={input}
-          onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={t.chatPlaceholder}
-          disabled={sending}
-          rows={1}
+      {voiceState !== 'idle' ? (
+        <VoiceBar
+          state={voiceState}
+          errorMsg={voiceError}
+          analyserRef={analyserRef}
+          onStop={stopRecording}
+          onCancel={cancelVoice}
         />
-        {voiceState !== 'idle' ? (
-          <div className="query-box-footer query-box-footer--voice">
-            <button type="button" className="voice-cancel-btn" onClick={cancelVoice} title="Cancel">
-              <CloseIcon />
-            </button>
-            <div className="voice-indicator">
-              {voiceState === 'recording' && (
-                <>
-                  <div className="voice-bars"><span/><span/><span/><span/></div>
-                  <span className="voice-label">Listening…</span>
-                </>
-              )}
-              {voiceState === 'processing' && (
-                <>
-                  <div className="voice-spinner" />
-                  <span className="voice-label">Transcribing…</span>
-                </>
-              )}
-              {voiceState === 'error' && (
-                <span className="voice-error-inline">{voiceError}</span>
-              )}
-            </div>
-            <button
-              type="button"
-              className="query-submit-btn"
-              onClick={voiceState === 'recording' ? stopRecording : undefined}
-              disabled={voiceState !== 'recording'}
-            >
-              <SubmitArrowIcon />
-            </button>
-          </div>
-        ) : (
+      ) : (
+        <div className="query-box" style={{ '--voice-color': MODE_COLORS[chatMode] } as React.CSSProperties}>
+          <textarea
+            ref={textareaRef}
+            className="chat-query-input"
+            value={input}
+            onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder={t.chatPlaceholder}
+            disabled={sending}
+            rows={1}
+          />
           <div className="query-box-footer">
             <button
               type="button"
@@ -378,8 +355,8 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
