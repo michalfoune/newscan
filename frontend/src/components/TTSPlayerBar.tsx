@@ -34,29 +34,32 @@ export function TTSPlayerBar({ state, chunkIdx, totalChunks, onPrev, onNext, onP
         <div className="tts-player-progress-fill" style={{ width: `${progress}%`, background: accent }} />
       </div>
       <div className="tts-player-controls">
-        <button
-          className="tts-player-btn"
-          onClick={onPrev}
-          disabled={!canPrev}
-          aria-label="Previous chunk"
-        >
-          <SkipBackIcon />
-        </button>
-        <button
-          className={`tts-player-btn tts-player-btn--main${isLoading ? ' tts-player-btn--pulsing' : ''}`}
-          onClick={onPlayPause}
-          aria-label={state === 'playing' ? 'Pause' : 'Play'}
-        >
-          {state === 'playing' ? <PauseIcon /> : <PlayIcon />}
-        </button>
-        <button
-          className="tts-player-btn"
-          onClick={onNext}
-          disabled={!canNext}
-          aria-label="Next chunk"
-        >
-          <SkipForwardIcon />
-        </button>
+        <div className="tts-player-spacer" />
+        <div className="tts-player-center-btns">
+          <button
+            className="tts-player-btn"
+            onClick={onPrev}
+            disabled={!canPrev}
+            aria-label="Previous chunk"
+          >
+            <SkipBackIcon />
+          </button>
+          <button
+            className={`tts-player-btn tts-player-btn--main${isLoading ? ' tts-player-btn--pulsing' : ''}`}
+            onClick={onPlayPause}
+            aria-label={state === 'playing' ? 'Pause' : 'Play'}
+          >
+            {state === 'playing' ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <button
+            className="tts-player-btn"
+            onClick={onNext}
+            disabled={!canNext}
+            aria-label="Next chunk"
+          >
+            <SkipForwardIcon />
+          </button>
+        </div>
         <button
           className="tts-player-btn tts-player-btn--close"
           onClick={onStop}
