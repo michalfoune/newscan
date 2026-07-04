@@ -8,9 +8,10 @@ interface Props {
   onNew: () => void;
   onClearAll: () => void;
   onDelete: (id: string) => void;
-  onRename: (id: string, newName: string) => void;
+  onRename: (id: string, newName: string, isSafeMode: boolean) => void;
   isOpen: boolean;
   onClose: () => void;
+  safeTitles?: boolean;
 }
 
 interface MenuState { id: string; x: number; y: number }
@@ -24,7 +25,7 @@ function timeLabel(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, onDelete, onRename, isOpen, onClose }: Props) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, onDelete, onRename, isOpen, onClose, safeTitles = true }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -65,12 +66,12 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
   const startRename = (id: string) => {
     const conv = conversations.find(c => c.id === id);
     setRenamingId(id);
-    setRenameValue(conv?.name ?? conv?.query ?? '');
+    setRenameValue((safeTitles ? (conv?.safeName ?? conv?.name) : conv?.name) ?? conv?.query ?? '');
     setMenu(null);
   };
 
   const commitRename = () => {
-    if (renamingId && renameValue.trim()) onRename(renamingId, renameValue.trim());
+    if (renamingId && renameValue.trim()) onRename(renamingId, renameValue.trim(), safeTitles);
     setRenamingId(null);
   };
 
@@ -150,7 +151,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
                 onPointerCancel={cancelLongPress}
                 onPointerLeave={cancelLongPress}
               >
-                <span className="sidebar-item-query">{c.name ?? c.query}</span>
+                <span className="sidebar-item-query">{(safeTitles ? (c.safeName ?? c.name) : c.name) ?? c.query}</span>
                 <span className="sidebar-item-time">{timeLabel(c.timestamp)}</span>
               </button>
             )

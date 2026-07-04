@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Token limits — Haiku utility calls
-CLASSIFY_MAX_TOKENS        = 48    # classify query → type + title
+CLASSIFY_MAX_TOKENS        = 80    # classify query → type + title + safe_title
 TOPIC_EXTRACT_MAX_TOKENS   = 384   # extract topic groups from query
 ARTICLE_FILTER_MAX_TOKENS  = 128   # filter irrelevant article titles
 TRANSLATION_MAX_TOKENS     = 512   # translate overall_summary to non-English
@@ -50,7 +50,7 @@ PIPELINE_TIMEOUT           = 30    # seconds to wait for background pipeline aft
 # ---------------------------------------------------------------------------
 
 CLASSIFY_PROMPT = (
-    "Classify the user's query and generate a short display title.\n\n"
+    "Classify the user's query and generate two short display titles.\n\n"
     "Classification — 'digest' or 'knowledge':\n"
     "'digest': the user wants a curated feed of articles on a broad topic — no specific question, just 'show me what is happening.' "
     "Examples: 'top stories today', 'tech news this week', 'what's happening in California', 'Gaza updates', 'world news'.\n"
@@ -58,9 +58,22 @@ CLASSIFY_PROMPT = (
     "Examples: 'how is the situation on the front line of a major conflict?', 'what were the key court findings in a high-profile trial?', "
     "'what is Apple's AI strategy?', 'how has the Gaza conflict evolved?', 'what is the Fed's latest decision on rates?'.\n"
     "Default strongly to 'knowledge'. Only classify as 'digest' when the query clearly has no specific question and is asking for a topic feed.\n\n"
-    "Title: 2–5 words, sentence case, no punctuation at the end. Capture the core topic, not the question form. "
-    "Examples: 'Ukraine war update', 'Fed interest rates', 'Gaza conflict', 'Top stories today'.\n\n"
-    "Return ONLY valid JSON: {\"type\": \"digest\" | \"knowledge\", \"title\": \"...\"}"
+    "title: 2–5 words, sentence case, no punctuation. Accurate and specific — captures the exact topic.\n\n"
+    "safe_title: a shoulder-surf-safe version. STRICT RULE: the safe_title must contain absolutely NO specific sensitive words — "
+    "no body part names, no names of acts or substances, no medical condition names. "
+    "Use ONLY the fixed label from the table below. Never paraphrase, never add qualifiers, never keep any word from the sensitive content.\n"
+    "A topic is only 'sensitive' if a reasonable person would feel uncomfortable having it visible to a colleague or stranger glancing at their screen. "
+    "Mainstream health, science, fertility, aging, nutrition, politics, finance, and news topics are NOT sensitive even when they involve the body or medicine.\n"
+    "Substitution table — apply the FIRST matching row, output that label verbatim:\n"
+    "  1. Topic involves a specific sexual act, technique, or explicit sexual question → output exactly: Sexual health question\n"
+    "  2. Topic involves sexual dysfunction or an intimate body part in a sexual context → output exactly: Sexual wellness\n"
+    "  3. Topic involves a personal medical condition someone would feel embarrassed discussing at work (e.g. STI, incontinence, mental illness stigma) → output exactly: Personal health question\n"
+    "  4. Topic involves illicit drug use, dosing, or effects → output exactly: Substance information\n"
+    "  5. Topic involves addiction (behavioural or substance) → output exactly: Wellness question\n"
+    "  6. Topic involves graphic violence, trauma, or crime details → output exactly: Safety topic\n"
+    "  7. Topic is otherwise clearly sensitive or private → output exactly: Personal topic\n"
+    "If NO row matches, safe_title equals title exactly. When in doubt, do NOT apply a substitution.\n\n"
+    "Return ONLY valid JSON: {\"type\": \"digest\" | \"knowledge\", \"title\": \"...\", \"safe_title\": \"...\"}"
 )
 
 TOPIC_EXTRACTION_PROMPT = (
@@ -400,8 +413,8 @@ _KNOWLEDGE_MODE_INSTRUCTIONS: dict = {
 
 
 
-def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Optional[str]]:
-    """Return (type, title) where type is 'news' or 'knowledge' and title is a short display name."""
+def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Optional[str], Optional[str]]:
+    """Return (type, title, safe_title) where type is 'digest' or 'knowledge'."""
     try:
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -417,12 +430,13 @@ def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Opti
         data = json.loads(raw)
         query_type = "digest" if str(data.get("type", "")).startswith("digest") else "knowledge"
         title = data.get("title") or None
-        logger.info(f"[classify] type={query_type} title={title!r}")
-        return query_type, title
+        safe_title = data.get("safe_title") or title
+        logger.info(f"[classify] type={query_type} title={title!r} safe_title={safe_title!r}")
+        return query_type, title, safe_title
     except Exception as e:
         raw_preview = repr(raw) if 'raw' in dir() else 'n/a'
         logger.warning(f"[classify] failed ({e}), raw={raw_preview}")
-        return "knowledge", None
+        return "knowledge", None, None
 
 
 _KNOWLEDGE_LANG_INSTRUCTIONS: dict = {
@@ -494,9 +508,9 @@ def answer_stream(req: BriefingRequest):
     def _background_pipeline() -> tuple[Optional[str], list, list[BriefingItem]]:
         """Classify + extract topics + fetch + compute article items; fully concurrent with knowledge stream."""
         try:
-            title = classify_query(req.request, client)[1]
+            _, title, safe_title = classify_query(req.request, client)
         except Exception:
-            title = None
+            title, safe_title = None, None
         tgs: list = []
         items: list[BriefingItem] = []
         try:
@@ -506,7 +520,7 @@ def answer_stream(req: BriefingRequest):
             items = _compute_article_items(client, req, now_iso, tgs, arts)
         except Exception:
             pass
-        return title, tgs, items
+        return title, safe_title, tgs, items
 
     with ThreadPoolExecutor(max_workers=1) as bg:
         pipeline_future = bg.submit(_background_pipeline)
@@ -516,12 +530,12 @@ def answer_stream(req: BriefingRequest):
 
         # Pipeline ran fully concurrently; generous timeout in case knowledge was unusually fast
         try:
-            title, topic_groups, precomputed_items = pipeline_future.result(timeout=PIPELINE_TIMEOUT)
+            title, safe_title, topic_groups, precomputed_items = pipeline_future.result(timeout=PIPELINE_TIMEOUT)
         except Exception:
-            title, topic_groups, precomputed_items = None, [], []
+            title, safe_title, topic_groups, precomputed_items = None, None, [], []
 
     if title:
-        yield f"event: title\ndata: {json.dumps({'title': title})}\n\n"
+        yield f"event: title\ndata: {json.dumps({'title': title, 'safe_title': safe_title or title})}\n\n"
 
     primaries = [g[0] for g in topic_groups]
 
