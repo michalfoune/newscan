@@ -18,6 +18,7 @@ const QUALITY_KEY = 'rizma-model-quality';
 const COUNTS_KEY = 'rizma-article-counts';
 const SHOW_KEYWORDS_KEY = 'rizma-show-keywords';
 const NEWS_SOURCE_KEY = 'rizma-news-source';
+const SAFE_TITLES_KEY = 'rizma-safe-titles';
 const DEFAULT_COUNTS: ArticleCounts = { calm: 2, balanced: 3, brave: 4 };
 
 const LANGUAGES: Language[] = ['en', 'cs'];
@@ -119,7 +120,7 @@ function CountInput({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-function SettingsPopover({ value, onChange, language, onLanguageChange, location, onLocationChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, newsSource, onNewsSourceChange, onClose }: {
+function SettingsPopover({ value, onChange, language, onLanguageChange, location, onLocationChange, modelQuality, onModelQualityChange, articleCounts, onArticleCountChange, showKeywords, onShowKeywordsChange, newsSource, onNewsSourceChange, safeTitles, onSafeTitlesChange, onClose }: {
   value: string;
   onChange: (v: string) => void;
   language: Language;
@@ -134,6 +135,8 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
   onShowKeywordsChange: (v: boolean) => void;
   newsSource: string;
   onNewsSourceChange: (s: string) => void;
+  safeTitles: boolean;
+  onSafeTitlesChange: (v: boolean) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -196,6 +199,14 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
               </button>
             ))}
           </div>
+        </div>
+        <div className="settings-section">
+          <p className="settings-section-label">Conversation titles</p>
+          <div className="settings-lang-switcher">
+            <button type="button" className={`settings-lang-btn${safeTitles ? ' settings-lang-btn--active' : ''}`} onClick={() => onSafeTitlesChange(true)}>Safe</button>
+            <button type="button" className={`settings-lang-btn${!safeTitles ? ' settings-lang-btn--active' : ''}`} onClick={() => onSafeTitlesChange(false)}>Full</button>
+          </div>
+          <p className="settings-section-hint">Safe hides sensitive topics in the sidebar — useful when others can see your screen.</p>
         </div>
         <div className="settings-section">
           <p className="settings-section-label">Content preferences</p>
@@ -393,6 +404,7 @@ export default function App() {
   });
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
+  const [safeTitles, setSafeTitles] = useState(() => localStorage.getItem(SAFE_TITLES_KEY) !== 'false');
   const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
   const [streamingKnowledge, setStreamingKnowledge] = useState('');
   const [currentQuery, setCurrentQuery] = useState('');
@@ -549,11 +561,11 @@ export default function App() {
                 setActiveId(convId);
               }
             } else if (eventType === 'title' && dataLine) {
-              const data = JSON.parse(dataLine) as { title: string };
+              const data = JSON.parse(dataLine) as { title: string; safe_title?: string };
               pendingTitle = data.title;
               if (convId) {
                 const cid = convId;
-                setConversations(prev => prev.map(c => c.id === cid ? { ...c, name: data.title } : c));
+                setConversations(prev => prev.map(c => c.id === cid ? { ...c, name: data.title, safeName: data.safe_title ?? data.title } : c));
               }
             } else if (eventType === 'fallback') {
               queryType = 'knowledge';
@@ -747,6 +759,8 @@ export default function App() {
               onShowKeywordsChange={handleShowKeywordsChange}
               newsSource={newsSource}
               onNewsSourceChange={handleNewsSourceChange}
+              safeTitles={safeTitles}
+              onSafeTitlesChange={v => { setSafeTitles(v); localStorage.setItem(SAFE_TITLES_KEY, String(v)); }}
               onClose={() => setSettingsOpen(false)}
             />
           )}
@@ -771,9 +785,10 @@ export default function App() {
           setConversations(prev => prev.filter(c => c.id !== id));
           if (activeId === id) handleNew();
         }}
-        onRename={(id, name) => setConversations(prev => prev.map(c => c.id === id ? { ...c, name } : c))}
+        onRename={(id, name, isSafe) => setConversations(prev => prev.map(c => c.id === id ? (isSafe ? { ...c, safeName: name } : { ...c, name }) : c))}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        safeTitles={safeTitles}
       />
       <div className="app-content">
         <header className="app-header" ref={headerRef}>
@@ -814,6 +829,8 @@ export default function App() {
                   onShowKeywordsChange={handleShowKeywordsChange}
                   newsSource={newsSource}
                   onNewsSourceChange={handleNewsSourceChange}
+                  safeTitles={safeTitles}
+                  onSafeTitlesChange={v => { setSafeTitles(v); localStorage.setItem(SAFE_TITLES_KEY, String(v)); }}
                   onClose={() => setSettingsOpen(false)}
                 />
               )}
