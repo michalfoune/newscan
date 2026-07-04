@@ -135,4 +135,6 @@ crash.log
 tmp/
 temp/
 uploads/
-data/
+data/payload.json
+*.payload.json
+test-payloads/
