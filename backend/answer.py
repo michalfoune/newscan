@@ -291,7 +291,7 @@ def _compute_article_items(
         )
         data = json.loads(_strip_fences(message.content[0].text.strip()))
     except Exception as e:
-        print(f"[compute_article_items] error: {e}", flush=True)
+        logger.warning("[compute_article_items] failed")
         return []
     items: list[BriefingItem] = []
     for i, raw_item in enumerate(data.get("items", [])):
@@ -300,7 +300,7 @@ def _compute_article_items(
         if raw_item.pop("no_articles", False) or raw_item.get("category", "").upper() == "UNAVAILABLE":
             continue
         relevance = float(raw_item.pop("relevance_score", 1.0))
-        print(f"Relevance: {relevance}")
+        logger.info(f"[article_relevance] score={relevance:.2f}")
         if relevance < 0.4:
             continue
         published_at, url, source, src_title, src_body = _resolve_meta(
@@ -431,11 +431,11 @@ def classify_query(request: str, client: anthropic.Anthropic) -> tuple[str, Opti
         query_type = "digest" if str(data.get("type", "")).startswith("digest") else "knowledge"
         title = data.get("title") or None
         safe_title = data.get("safe_title") or title
-        logger.info(f"[classify] type={query_type} title={title!r} safe_title={safe_title!r}")
+        logger.warning(f"[classify] type={query_type}")
         return query_type, title, safe_title
     except Exception as e:
         raw_preview = repr(raw) if 'raw' in dir() else 'n/a'
-        logger.warning(f"[classify] failed ({e}), raw={raw_preview}")
+        logger.warning(f"[classify] classification failed")
         return "knowledge", None, None
 
 
@@ -477,7 +477,7 @@ def _knowledge_stream(client: anthropic.Anthropic, req: BriefingRequest):
                     yield f"event: k_chunk\ndata: {json.dumps({'chunk': event.delta.text})}\n\n"
         yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
     except Exception as e:
-        print(f"[knowledge_stream] error: {e}", flush=True)
+        logger.warning("[knowledge_stream] failed")
         yield f"event: k_done\ndata: {json.dumps({'knowledge_cutoff': None})}\n\n"
 
 
