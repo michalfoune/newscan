@@ -40,6 +40,7 @@ export interface Conversation {
   id: string;
   query: string;
   name?: string;
+  safeName?: string;
   response: BriefingResponse;
   thread: ThreadItem[];
   mode: Mode;
