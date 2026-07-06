@@ -404,7 +404,6 @@ export default function App() {
   });
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
-  const [safeTitles, setSafeTitles] = useState(() => localStorage.getItem(SAFE_TITLES_KEY) !== 'false');
   const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
   const [streamingKnowledge, setStreamingKnowledge] = useState('');
   const [currentQuery, setCurrentQuery] = useState('');
