@@ -24,7 +24,7 @@ _AGENT_INSTRUCTION = (
 # All mutable per-request state lives inside agent_answer_stream().
 _agent = Agent(
     name="rizma_briefing_agent",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     description="Answers news and knowledge queries for Rizma Brief",
     instruction=_AGENT_INSTRUCTION,
 )
