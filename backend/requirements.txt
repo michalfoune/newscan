@@ -6,4 +6,5 @@ eventregistry>=9.1
 requests>=2.31.0
 openai>=1.0.0
 python-multipart>=0.0.9
+google-adk>=1.0.0
 # force reinstall

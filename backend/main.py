@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from models import BriefingRequest, ChatStreamRequest, TTSRequest
 from answer import answer_stream
 from chat import answer_followup_stream
+from agent_answer import agent_answer_stream
 
 app = FastAPI(title="Rizma Brief API")
 
@@ -57,6 +58,18 @@ def create_briefing_stream(req: BriefingRequest):
     try:
         return StreamingResponse(
             answer_stream(req),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/briefing/agent-stream")
+def create_agent_briefing_stream(req: BriefingRequest):
+    try:
+        return StreamingResponse(
+            agent_answer_stream(req),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

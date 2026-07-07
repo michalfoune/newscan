@@ -404,6 +404,7 @@ export default function App() {
   });
   const [showKeywords, setShowKeywords] = useState(() => localStorage.getItem(SHOW_KEYWORDS_KEY) !== 'false');
   const [newsSource, setNewsSource] = useState(() => localStorage.getItem(NEWS_SOURCE_KEY) ?? 'gnews');
+  const [safeTitles, setSafeTitles] = useState(() => localStorage.getItem(SAFE_TITLES_KEY) !== 'false');
   const [location, setLocation] = useState(() => localStorage.getItem(LOCATION_KEY) ?? 'us');
   const [streamingKnowledge, setStreamingKnowledge] = useState('');
   const [currentQuery, setCurrentQuery] = useState('');
@@ -509,7 +510,9 @@ export default function App() {
     let pendingTitle: string | null = null;
 
     try {
-      const res = await fetch(`${API_URL}/api/briefing/stream`, {
+      const briefingEndpoint = localStorage.getItem('rizma-use-agent') === 'true' ? '/api/briefing/agent-stream' : '/api/briefing/stream';
+      console.warn(`[rizma] briefing endpoint: ${briefingEndpoint}`);
+      const res = await fetch(`${API_URL}${briefingEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts, news_source: newsSource, location }),
