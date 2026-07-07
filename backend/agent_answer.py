@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import uuid
@@ -48,11 +49,11 @@ def agent_answer_stream(req: BriefingRequest):
     yield f"event: query_type\ndata: {json.dumps({'type': 'knowledge'})}\n\n"
 
     try:
-        _session_service.create_session(
+        asyncio.run(_session_service.create_session(
             app_name=_APP_NAME,
             user_id="anonymous",
             session_id=session_id,
-        )
+        ))
 
         message = genai_types.Content(
             role="user",
