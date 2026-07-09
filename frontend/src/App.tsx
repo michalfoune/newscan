@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from './firebase';
 import { BriefingForm } from './components/BriefingForm';
 import { BriefingFeed } from './components/BriefingFeed';
 import { ChatInterface } from './components/ChatInterface';
 import { Sidebar } from './components/Sidebar';
+import { AuthButton, triggerSignIn } from './components/AuthButton';
 import { ArticleCounts, BriefingRequest, BriefingResponse, ChatMessage, Conversation, Mode, ModelQuality, QueryType, ThreadItem } from './types';
 import { Language, translations, Translations } from './translations';
 import { renderMarkdown, stripMarkdown } from './utils/markdown';
+import { getAuthToken } from './utils/getAuthToken';
 import { TTSProvider, useTTSContext } from './contexts/TTSContext';
 import { CopyIcon, HamburgerIcon, PlayIcon, SettingsIcon } from './components/icons';
 import { TTSPlayerBar } from './components/TTSPlayerBar';
@@ -384,6 +388,10 @@ function ConnectedTTSPlayerBar() {
 }
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  useEffect(() => { if (user) setError(null); }, [user]);
+
   const [language, setLanguage] = useState<Language>('en');
   const [mode, setMode] = useState<Mode>('calm');
   const [response, setResponse] = useState<BriefingResponse | null>(null);
@@ -512,13 +520,18 @@ export default function App() {
     try {
       const briefingEndpoint = localStorage.getItem('rizma-use-agent') === 'true' ? '/api/briefing/agent-stream' : '/api/briefing/stream';
       console.warn(`[rizma] briefing endpoint: ${briefingEndpoint}`);
+      const authToken = await getAuthToken();
       const res = await fetch(`${API_URL}${briefingEndpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({ ...req, language, system_preferences: systemPreferences.trim() || undefined, model_quality: modelQuality, article_counts: articleCounts, news_source: newsSource, location }),
         signal: abortRef.current.signal,
       });
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) throw new Error('__auth__');
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { detail?: string }).detail ?? `Request failed (${res.status})`);
       }
@@ -667,7 +680,7 @@ export default function App() {
       }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        setError(err.message);
+        setError(err.message === '__auth__' ? '__auth__' : err.message);
       }
     } finally {
       isStreamingRef.current = false;
@@ -745,6 +758,7 @@ export default function App() {
           >
             <SettingsIcon />
           </button>
+          <AuthButton user={user} />
           {settingsOpen && showStickyNav && (
             <SettingsPopover
               value={systemPreferences}
@@ -791,6 +805,7 @@ export default function App() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         safeTitles={safeTitles}
+        isAuthenticated={!!user}
       />
       <div className="app-content">
         <header className="app-header" ref={headerRef}>
@@ -815,6 +830,7 @@ export default function App() {
                   <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
                 </svg>
               </button>
+              <AuthButton user={user} />
               {settingsOpen && !showStickyNav && (
                 <SettingsPopover
                   value={systemPreferences}
@@ -860,7 +876,11 @@ export default function App() {
               Thinking… {elapsed}s
             </div>
           )}
-          {error && <div className="error-banner">{error}</div>}
+          {error && (
+            error === '__auth__'
+              ? thread.length === 0 && <div className="error-banner--auth-wrap"><button className="error-banner--auth" style={{ background: MODE_COLORS[mode] }} onClick={triggerSignIn}>Sign in to ask questions</button></div>
+              : <div className="error-banner">{error}</div>
+          )}
           {response && response.items.length === 0 && !loading && !response.knowledgeAnswer && !streamingKnowledge && (
             <div className="no-results">
               <p>{t.noResults}</p>
@@ -907,6 +927,8 @@ export default function App() {
                 articleCounts={articleCounts}
                 newsSource={newsSource}
                 location={location}
+                onAuthError={() => setError('__auth__')}
+                isAuthenticated={!!user}
               />
             </>
           )}
@@ -931,6 +953,8 @@ export default function App() {
                 articleCounts={articleCounts}
                 newsSource={newsSource}
                 location={location}
+                onAuthError={() => setError('__auth__')}
+                isAuthenticated={!!user}
               />
             </>
           )}

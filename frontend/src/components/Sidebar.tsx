@@ -12,6 +12,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   safeTitles?: boolean;
+  isAuthenticated?: boolean;
 }
 
 interface MenuState { id: string; x: number; y: number }
@@ -25,7 +26,7 @@ function timeLabel(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, onDelete, onRename, isOpen, onClose, safeTitles = true }: Props) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, onDelete, onRename, isOpen, onClose, safeTitles = true, isAuthenticated = false }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -107,7 +108,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
           </button>
         </div>
         <div className="sidebar-list">
-          {conversations.length > 0 && (
+          {isAuthenticated && conversations.length > 0 && (
             <div className="sidebar-section-row">
               <p className="sidebar-section-label">Recents</p>
               <button className={`sidebar-clear-btn${confirmClear ? ' sidebar-clear-btn--confirm' : ''}`} onClick={handleClear}>
@@ -118,7 +119,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onClearAll, 
               </button>
             </div>
           )}
-          {conversations.map((c) =>
+          {isAuthenticated && conversations.map((c) =>
             renamingId === c.id ? (
               <input
                 key={c.id}

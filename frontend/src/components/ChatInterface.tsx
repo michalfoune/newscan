@@ -8,6 +8,8 @@ import { useTTSContext } from '../contexts/TTSContext';
 import { stripMarkdown } from '../utils/markdown';
 import { ChevronDownIcon, ChevronUpIcon, CopyIcon, MicIcon, PlayIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 import { VoiceBar } from './VoiceBar';
+import { getAuthToken } from '../utils/getAuthToken';
+import { triggerSignIn } from './AuthButton';
 
 function ThinkingDots({ color }: { color: string }) {
   return (
@@ -35,6 +37,8 @@ interface Props {
   thread: ThreadItem[];
   onThreadChange: (thread: ThreadItem[]) => void;
   onModeChange?: (mode: Mode) => void;
+  onAuthError?: () => void;
+  isAuthenticated?: boolean;
   systemPreferences?: string;
   modelQuality?: string;
   articleCounts?: ArticleCounts;
@@ -42,10 +46,12 @@ interface Props {
   location?: string;
 }
 
-export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, onModeChange, systemPreferences, modelQuality, articleCounts, newsSource, location }: Props) {
+export function ChatInterface({ context, language, t, apiUrl, initialMode, thread, onThreadChange, onModeChange, onAuthError, isAuthenticated, systemPreferences, modelQuality, articleCounts, newsSource, location }: Props) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chatMode, setChatMode] = useState<Mode>(initialMode);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  useEffect(() => { if (isAuthenticated) setShowAuthPrompt(false); }, [isAuthenticated]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [pendingText, setPendingText] = useState('');
 
@@ -121,6 +127,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
     const text = (textOverride ?? input).trim();
     if (!text || sending) return;
 
+    setShowAuthPrompt(false);
     const userItem: ThreadItem = { type: 'message', role: 'user', content: text };
     const threadWithUser = [...thread, userItem];
     onThreadChange(threadWithUser);
@@ -137,9 +144,13 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
       .map(item => ({ role: item.role, content: item.content }));
 
     try {
+      const authToken = await getAuthToken();
       const res = await fetch(`${apiUrl}/api/chat/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           messages,
           new_message: text,
@@ -154,6 +165,15 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
         }),
         signal: abortRef.current.signal,
       });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          setShowAuthPrompt(true);
+          onAuthError?.();
+          return;
+        }
+        throw new Error(`Request failed (${res.status})`);
+      }
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -299,6 +319,13 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
             </div>
           )}
 
+          {showAuthPrompt && (
+            <div className="error-banner--auth-wrap" style={{ padding: '12px 0 4px' }}>
+              <button className="error-banner--auth" style={{ background: MODE_COLORS[chatMode] }} onClick={triggerSignIn}>
+                Sign in to ask questions
+              </button>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
       )}
