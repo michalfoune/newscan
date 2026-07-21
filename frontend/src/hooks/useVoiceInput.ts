@@ -5,11 +5,12 @@ export type VoiceState = 'idle' | 'recording' | 'processing' | 'error';
 interface UseVoiceInputOptions {
   apiUrl: string;
   onTranscript: (text: string, autoSubmit: boolean) => void;
+  getToken?: () => Promise<string | null>;
 }
 
 const isMobile = () => navigator.maxTouchPoints > 0;
 
-export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
+export function useVoiceInput({ apiUrl, onTranscript, getToken }: UseVoiceInputOptions) {
   const [state, setState] = useState<VoiceState>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -61,8 +62,10 @@ export function useVoiceInput({ apiUrl, onTranscript }: UseVoiceInputOptions) {
         try {
           const form = new FormData();
           form.append('audio', blob, 'recording.webm');
+          const token = getToken ? await getToken() : null;
           const res = await fetch(`${apiUrl}/api/transcribe`, {
             method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
             body: form,
             signal: fetchAbortRef.current.signal,
           });

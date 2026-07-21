@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { BriefingRequest, Mode } from '../types';
 import { Language, Translations } from '../translations';
 import { useVoiceInput } from '../hooks/useVoiceInput';
+import { getAuthToken } from '../utils/getAuthToken';
 import { ChevronDownIcon, ChevronUpIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 import { VoiceBar } from './VoiceBar';
 
@@ -49,6 +50,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
 
   const { state: voiceState, errorMsg: voiceError, startRecording, stopRecording, cancel: cancelVoice, analyserRef } = useVoiceInput({
     apiUrl,
+    getToken: getAuthToken,
     onTranscript: (text, autoSubmit) => {
       const next = request.trimEnd() ? request.trimEnd() + ' ' + text : text;
       setRequest(next);

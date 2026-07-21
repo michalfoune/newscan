@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getAuthToken } from '../utils/getAuthToken';
 
 export type TTSState = 'idle' | 'loading' | 'playing' | 'paused' | 'failed';
 
@@ -90,9 +91,13 @@ export function useTTS(apiUrl: string) {
   const fetchAudioUrl = async (text: string, signal: AbortSignal): Promise<string | null> => {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
+        const token = await getAuthToken();
         const res = await fetch(`${apiUrl}/api/tts`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ text }),
           signal,
         });
