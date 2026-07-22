@@ -63,3 +63,56 @@ npm install
 npm run dev
 # Runs at http://localhost:5173
 ```
+
+The frontend reads `frontend/.env.local` for local config. Set `VITE_API_URL=http://localhost:8000` and the Firebase project keys there.
+
+### Auth bypass (local only)
+
+The backend requires a valid Firebase token on all routes. To skip this during local development, add to `backend/.env`:
+
+```
+SKIP_AUTH=1
+```
+
+Do not set this in production.
+
+### Developer switches (localStorage)
+
+Open the browser console on any environment and set these to change runtime behaviour without a redeploy:
+
+| Key | Values | Effect |
+|-----|--------|--------|
+| `rizma-use-agent` | `"true"` / `"false"` (default) | Routes briefing requests to the experimental ADK endpoint (`/api/briefing/agent-stream`) instead of the standard pipeline. Requires the logged-in user's email to be in `ADMIN_EMAILS` on the backend; others get 403. |
+
+Example:
+```js
+localStorage.setItem('rizma-use-agent', 'true')   // enable
+localStorage.removeItem('rizma-use-agent')          // disable (preferred over setting to 'false')
+```
+
+## Deployment
+
+### Frontend — Firebase Hosting
+
+```bash
+cd frontend
+npm run build
+firebase deploy --only hosting
+```
+
+### Backend — Google Cloud Run
+
+```bash
+cd backend
+gcloud run deploy rizma-api \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-secrets ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,GNEWS_API_KEY=GNEWS_API_KEY:latest,NEWS_API_KEY=NEWS_API_KEY:latest \
+  --set-env-vars GOOGLE_GENAI_USE_ENTERPRISE=True,GOOGLE_CLOUD_PROJECT=rizma-gcp,GOOGLE_CLOUD_LOCATION=us-central1,ADMIN_EMAILS=michal.foune@gmail.com \
+  --max-instances 2 \
+  --memory 1Gi \
+  --timeout 300
+```
+
+`--allow-unauthenticated` lets Cloud Run accept public traffic; Firebase token verification is enforced by the app itself. `ADMIN_EMAILS` gates the experimental `/api/briefing/agent-stream` endpoint.
