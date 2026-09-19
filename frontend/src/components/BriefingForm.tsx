@@ -5,6 +5,7 @@ import { useVoiceInput } from '../hooks/useVoiceInput';
 import { getAuthToken } from '../utils/getAuthToken';
 import { ChevronDownIcon, ChevronUpIcon, CopyIcon, EditIcon, MicIcon, StopSquareIcon, SubmitArrowIcon } from './icons';
 import { VoiceBar } from './VoiceBar';
+import { ModeSelector, MODE_COLORS } from './ModeSelector';
 
 interface Props {
   onSubmit: (req: BriefingRequest) => void;
@@ -18,14 +19,6 @@ interface Props {
   initialRequest?: string;
   apiUrl: string;
 }
-
-const MODES: Mode[] = ['calm', 'balanced', 'brave'];
-
-const MODE_COLORS: Record<Mode, string> = {
-  calm: '#4838a8',
-  balanced: '#2e7d4f',
-  brave: '#e07040',
-};
 
 export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, language, mode, onModeChange, initialRequest = '', apiUrl }: Props) {
   const [request, setRequest] = useState(initialRequest);
@@ -140,21 +133,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               <MicIcon />
             </button>
             <div className="query-box-actions">
-              <div className="mode-buttons">
-                {MODES.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`mode-btn${mode === m ? ' mode-btn--active' : ''}`}
-                    style={{ background: MODE_COLORS[m] }}
-                    onClick={() => onModeChange(m)}
-                    disabled={loading}
-                    data-tip={t.modeDescriptions[m]}
-                  >
-                    {t.modeLabels[m]}
-                  </button>
-                ))}
-              </div>
+              <ModeSelector value={mode} onChange={onModeChange} disabled={loading} t={t} />
               {loading ? (
                 <button type="button" className="query-submit-btn query-submit-btn--stop" onClick={onCancel}>
                   <StopSquareIcon />

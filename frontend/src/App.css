@@ -473,51 +473,61 @@ body {
   opacity: 0.65;
 }
 
-/* Hover preview of what each mode does. Desktop only: on touch,
-   :hover sticks after a tap and leaves the tooltip stranded on screen. */
+/* Explains what each mode does. Revealed on hover on desktop, and by a brief
+   self-dismissing hint after a tap on touch, where there is no hover. */
+.mode-btn[data-tip] {
+  position: relative;
+}
+
+.mode-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 180px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: center;
+  /* .mode-btn sets nowrap and ::after inherits it — without this the text
+     overflows the box instead of wrapping. */
+  white-space: normal;
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 5;
+}
+
+/* Keep the edge tooltips inside the query box instead of centring past it. */
+.mode-btn[data-tip]:first-child::after {
+  left: 0;
+  transform: none;
+}
+
+.mode-btn[data-tip]:last-child::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+/* Desktop only: on touch, :hover sticks after a tap and would leave the
+   tooltip stranded on screen. */
 @media (hover: hover) and (pointer: fine) {
-  .mode-btn[data-tip]::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: 180px;
-    background: #1a1a1a;
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 400;
-    line-height: 1.35;
-    text-align: center;
-    /* .mode-btn sets nowrap and ::after inherits it — without this the text
-       overflows the box instead of wrapping. */
-    white-space: normal;
-    padding: 0.3rem 0.5rem;
-    border-radius: 5px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 5;
-  }
-
-  .mode-btn[data-tip] {
-    position: relative;
-  }
-
-  /* Keep the edge tooltips inside the query box instead of centring past it. */
-  .mode-btn[data-tip]:first-child::after {
-    left: 0;
-    transform: none;
-  }
-
-  .mode-btn[data-tip]:last-child::after {
-    left: auto;
-    right: 0;
-    transform: none;
-  }
-
   .mode-btn[data-tip]:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Touch: the class is set on tap and cleared by a timer, so the tooltip
+   fades itself out. Gated to touch so it never double-fires with :hover. */
+@media (hover: none) {
+  .mode-btn--hinted[data-tip]::after {
     opacity: 1;
   }
 }

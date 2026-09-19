@@ -10,6 +10,7 @@ import { ChevronDownIcon, ChevronUpIcon, CopyIcon, MicIcon, PlayIcon, StopSquare
 import { VoiceBar } from './VoiceBar';
 import { getAuthToken } from '../utils/getAuthToken';
 import { triggerSignIn } from './AuthButton';
+import { ModeSelector, MODE_COLORS } from './ModeSelector';
 
 function ThinkingDots({ color }: { color: string }) {
   return (
@@ -20,13 +21,6 @@ function ThinkingDots({ color }: { color: string }) {
   );
 }
 
-const MODES: Mode[] = ['calm', 'balanced', 'brave'];
-
-const MODE_COLORS: Record<Mode, string> = {
-  calm: '#4838a8',
-  balanced: '#2e7d4f',
-  brave: '#e07040',
-};
 
 interface Props {
   context: string;
@@ -362,21 +356,12 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               <MicIcon />
             </button>
             <div className="query-box-actions">
-              <div className="mode-buttons">
-                {MODES.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`mode-btn${chatMode === m ? ' mode-btn--active' : ''}`}
-                    style={{ background: MODE_COLORS[m] }}
-                    onClick={() => { setChatMode(m); onModeChange?.(m); }}
-                    disabled={sending}
-                    data-tip={t.modeDescriptions[m]}
-                  >
-                    {t.modeLabels[m]}
-                  </button>
-                ))}
-              </div>
+              <ModeSelector
+                value={chatMode}
+                onChange={(m) => { setChatMode(m); onModeChange?.(m); }}
+                disabled={sending}
+                t={t}
+              />
               <button
                 className="query-submit-btn"
                 onClick={sending ? cancelSend : () => send()}
