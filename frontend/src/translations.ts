@@ -93,11 +93,11 @@ export const translations: Record<Language, Translations> = {
     stories: (n) => `${n} ${n === 1 ? 'příběh' : n < 5 ? 'příběhy' : 'příběhů'}`,
     generatedAt: (t) => `Vygenerováno v ${t}`,
     toneLabels: { positive: 'Pozitivní', neutral: 'Neutrální', concerning: 'Znepokojivé' },
-    modeLabels: { calm: 'Klidný', balanced: 'Vyvážený', brave: 'Bez filtru' },
+    modeLabels: { calm: 'Klidné', balanced: 'Vyvážené', brave: 'Bez filtru' },
     modeDescriptions: {
       calm: 'Šetrnější podání, méně zpráv, nic drastického.',
-      balanced: 'Upřímné zpravodajství bez senzacechtivosti.',
-      brave: 'Úplný obraz, včetně tvrdých detailů.',
+      balanced: 'Upřímné zpravodajství bez senzací.',
+      brave: 'Úplný obraz, včetně znepokojivých detailů.',
     },
     categories: ['Svět', 'Politika', 'Ekonomika', 'Finanční trhy', 'Technologie', 'Věda', 'Klima', 'Zdraví', 'Sport', 'Kultura', 'Byznys'],
     categoryPrompts: [
