@@ -386,7 +386,6 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               </button>
             </div>
           </div>
-          <p className="mode-caption">{t.modeDescriptions[chatMode]}</p>
         </div>
       )}
     </div>

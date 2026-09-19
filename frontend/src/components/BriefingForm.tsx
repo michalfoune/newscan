@@ -166,7 +166,6 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               )}
             </div>
           </div>
-          <p className="mode-caption">{t.modeDescriptions[mode]}</p>
         </div>
       )}
 
