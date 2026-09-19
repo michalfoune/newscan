@@ -14,7 +14,7 @@ export interface Translations {
   generatedAt: (t: string) => string;
   toneLabels: { positive: string; neutral: string; concerning: string };
   modeLabels: { calm: string; balanced: string; brave: string };
-  modeTooltip: string;
+  modeDescriptions: { calm: string; balanced: string; brave: string };
   categories: string[];
   categoryPrompts: string[];
   timeJustNow: string;
@@ -46,8 +46,12 @@ export const translations: Record<Language, Translations> = {
     stories: (n) => `${n} ${n === 1 ? 'story' : 'stories'}`,
     generatedAt: (t) => `Generated at ${t}`,
     toneLabels: { positive: 'Positive', neutral: 'Neutral', concerning: 'Concerning' },
-    modeLabels: { calm: 'Calm', balanced: 'Balanced', brave: 'Brave' },
-    modeTooltip: 'Calm: gentle framing, max 3 stories, no graphic content.\nBalanced: honest coverage without sensationalism.\nBrave: full, unfiltered news awareness.\nSwitching mode after articles are loaded only affects follow-up answers, not the briefing.',
+    modeLabels: { calm: 'Gentle', balanced: 'Measured', brave: 'Unfiltered' },
+    modeDescriptions: {
+      calm: 'Softer framing, fewer stories, nothing graphic.',
+      balanced: 'Honest coverage, without the sensationalism.',
+      brave: 'The full picture, including hard details.',
+    },
     categories: ['World', 'Politics', 'Economy', 'Financial Markets', 'Technology', 'Science', 'Climate', 'Health', 'Sports', 'Culture', 'Business'],
     categoryPrompts: [
       "What's happening in the world?",
@@ -89,8 +93,12 @@ export const translations: Record<Language, Translations> = {
     stories: (n) => `${n} ${n === 1 ? 'příběh' : n < 5 ? 'příběhy' : 'příběhů'}`,
     generatedAt: (t) => `Vygenerováno v ${t}`,
     toneLabels: { positive: 'Pozitivní', neutral: 'Neutrální', concerning: 'Znepokojivé' },
-    modeLabels: { calm: 'Klidný', balanced: 'Vyvážený', brave: 'Odvážný' },
-    modeTooltip: 'Klidný: jemné podání, max 3 příběhy, žádný grafický obsah.\nVyvážený: upřímné zprávy bez senzacechtivosti.\nOdvážný: úplné, nefiltrované zpravodajství.\nPřepnutí režimu po načtení článků ovlivní pouze následující odpovědi, nikoli samotný přehled.',
+    modeLabels: { calm: 'Klidný', balanced: 'Vyvážený', brave: 'Bez filtru' },
+    modeDescriptions: {
+      calm: 'Šetrnější podání, méně zpráv, nic drastického.',
+      balanced: 'Upřímné zpravodajství bez senzacechtivosti.',
+      brave: 'Úplný obraz, včetně tvrdých detailů.',
+    },
     categories: ['Svět', 'Politika', 'Ekonomika', 'Finanční trhy', 'Technologie', 'Věda', 'Klima', 'Zdraví', 'Sport', 'Kultura', 'Byznys'],
     categoryPrompts: [
       'Co se děje ve světě?',

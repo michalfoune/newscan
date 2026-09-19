@@ -371,6 +371,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
                     style={{ background: MODE_COLORS[m] }}
                     onClick={() => { setChatMode(m); onModeChange?.(m); }}
                     disabled={sending}
+                    data-tip={t.modeDescriptions[m]}
                   >
                     {t.modeLabels[m]}
                   </button>
@@ -385,6 +386,7 @@ export function ChatInterface({ context, language, t, apiUrl, initialMode, threa
               </button>
             </div>
           </div>
+          <p className="mode-caption">{t.modeDescriptions[chatMode]}</p>
         </div>
       )}
     </div>

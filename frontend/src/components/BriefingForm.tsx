@@ -149,6 +149,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
                     style={{ background: MODE_COLORS[m] }}
                     onClick={() => onModeChange(m)}
                     disabled={loading}
+                    data-tip={t.modeDescriptions[m]}
                   >
                     {t.modeLabels[m]}
                   </button>
@@ -165,6 +166,7 @@ export function BriefingForm({ onSubmit, onCancel, loading, hasResults, t, langu
               )}
             </div>
           </div>
+          <p className="mode-caption">{t.modeDescriptions[mode]}</p>
         </div>
       )}
 

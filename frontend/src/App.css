@@ -473,6 +473,63 @@ body {
   opacity: 0.65;
 }
 
+/* Always-visible description of the selected mode — this is the primary
+   explainer, and the only one that works on touch. */
+.mode-caption {
+  margin: 0;
+  padding: 0 0.85rem 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #999;
+  text-align: right;
+}
+
+/* Hover preview of the modes you have not selected. Desktop only: on touch,
+   :hover sticks after a tap and leaves the tooltip stranded on screen. */
+@media (hover: hover) and (pointer: fine) {
+  .mode-btn[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 170px;
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: center;
+    padding: 0.3rem 0.5rem;
+    border-radius: 5px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 5;
+  }
+
+  .mode-btn[data-tip] {
+    position: relative;
+  }
+
+  /* Keep the edge tooltips inside the query box instead of centring past it. */
+  .mode-btn[data-tip]:first-child::after {
+    left: 0;
+    transform: none;
+  }
+
+  .mode-btn[data-tip]:last-child::after {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+
+  .mode-btn[data-tip]:hover::after {
+    opacity: 1;
+  }
+}
+
 /* Arrow submit button */
 .query-submit-btn {
   width: 2.5rem;

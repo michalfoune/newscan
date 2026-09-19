@@ -261,7 +261,7 @@ function SettingsPopover({ value, onChange, language, onLanguageChange, location
           <div className="settings-counts-row">
             {MODES.map(m => (
               <label key={m} className="settings-count-item">
-                <span className="settings-count-label">{m.charAt(0).toUpperCase() + m.slice(1)}</span>
+                <span className="settings-count-label">{translations[language].modeLabels[m]}</span>
                 <CountInput value={articleCounts[m]} onChange={v => onArticleCountChange(m, v)} />
               </label>
             ))}
